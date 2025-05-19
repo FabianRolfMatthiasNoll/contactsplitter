@@ -29,16 +29,6 @@ class KontaktsplitterApp:
             self.ai_service = OpenAIService(api_key=api_key)
         except Exception as e:
             logger.error(f"OpenAI Initialisierung fehlgeschlagen: {e}")
-            # Dummy-Service für lokale Tests
-            self.ai_service = type(
-                "DummyAI",
-                (object,),
-                {
-                    "detect_gender": lambda self, n: "-",
-                    "detect_language": lambda self, t: "",
-                    "generate_briefanrede": lambda self, c: "Sehr geehrte Damen und Herren",
-                },
-            )()
 
         self.contact_service = ContactService(self.title_repo, self.ai_service)
         self.current_contact = None
