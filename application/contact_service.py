@@ -1,3 +1,5 @@
+# application/contact_service.py
+
 """Application service for processing contact input through parsing and detection steps."""
 
 import logging
@@ -28,26 +30,28 @@ class ContactService:
         self.title_repo.load()
         logger.info(f"Loaded {len(self.title_repo.get_titles())} titles.")
 
-    def process_input(self, input_str: str) -> Contact:
+    def parse_input_to_contact(self, input_str: str) -> Contact:
         """
-        Process a raw input string to parse and enrich it into a Contact object.
-        Performs parsing, gender/language detection, briefanrede generation, and sets needs_review if necessary.
+        Parse a raw input string and enrich it into a Contact object,
+        without modifying the in-memory history.
         """
         if input_str is None:
             input_str = ""
         input_str = input_str.strip()
+
         # Validation
         if input_str == "" or len(input_str) > 255:
             logger.warning("Invalid input string (empty or too long).")
-            # Return an empty contact indicating invalid input
             contact = Contact()
             contact.needs_review = True
             return contact
-        # Parse input into basic fields
+
+        # 1) Grundlegendes Parsen
         contact = name_parser.parse_name_to_contact(
             input_str, self.title_repo.get_titles()
         )
-        # If gender not determined via anrede, try via AI on first name
+
+        # 2) Geschlecht via AI, falls nicht aus Anrede ermittelt
         if contact.geschlecht == "-" and contact.vorname:
             try:
                 contact.geschlecht = self.ai_service.detect_gender(
@@ -55,8 +59,9 @@ class ContactService:
                 )
             except Exception as e:
                 logger.error(f"Gender detection via AI failed: {e}")
-        # If language not determined via salutation, try via AI on name
-        if not contact.sprache or contact.sprache == "":
+
+        # 3) Sprache via AI, falls nicht aus Anrede ermittelt
+        if not contact.sprache:
             name_for_lang = f"{contact.vorname} {contact.nachname}".strip()
             if name_for_lang:
                 try:
@@ -64,38 +69,51 @@ class ContactService:
                 except Exception as e:
                     logger.error(f"Language detection via AI failed: {e}")
                     detected = ""
-                contact.sprache = detected if detected else ""
-        # Generate briefanrede
+                contact.sprache = detected or ""
+
+        # 4) Briefanrede generieren
         contact.briefanrede = self.ai_service.generate_briefanrede(contact)
-        # Determine if needs_review should be set
+
+        # 5) Review-Flag setzen
         if (
             contact.geschlecht == "-"
             or contact.sprache == ""
             or not contact.vorname
             or not contact.nachname
         ):
-            # If any key information is missing or ambiguous, flag for review
             contact.needs_review = True
         else:
             contact.needs_review = False
-        # Add to history
-        self._add_to_history(contact)
+
         return contact
 
+    def process_input(self, input_str: str) -> Contact:
+        """
+        Entry point für Parsing & Erkennung. Liefert ein Contact-Objekt,
+        fügt es aber nicht automatisch in die Historie ein.
+        """
+        return self.parse_input_to_contact(input_str)
+
+    def add_to_history(self, contact: Contact) -> None:
+        """
+        Fügt einen Contact manuell in die In-Memory-Historie ein
+        und trimmt sie auf self.history_size.
+        """
+        self._add_to_history(contact)
+
     def _add_to_history(self, contact: Contact):
-        """Add a contact to history (in-memory). Trims history if exceeding size."""
+        """Interne Hilfsmethode für die Historien-Verwaltung."""
         self.history.append(contact)
         if len(self.history) > self.history_size:
-            # remove oldest
             self.history.pop(0)
         logger.info(f"Added contact to history (size now {len(self.history)}).")
 
     def regenerate_briefanrede(self, contact: Contact) -> None:
         """
-        Regenerate the briefanrede for a given Contact (e.g., after manual field changes).
+        Regenerate die Briefanrede (z.B. nach manuellen Feldänderungen).
         """
         contact.briefanrede = self.ai_service.generate_briefanrede(contact)
-        # Re-evaluate review flag if needed
+        # Review-Flag ggf. neu setzen
         if (
             contact.geschlecht == "-"
             or contact.sprache == ""
@@ -108,7 +126,6 @@ class ContactService:
 
     def save_new_title(self, title: str) -> bool:
         """
-        Save a new title to the title repository (and persist it).
-        Returns True if added, False if it was already known or invalid.
+        Speichert einen neuen Titel in die Repository (persistiert in titles.json).
         """
         return self.title_repo.add(title)

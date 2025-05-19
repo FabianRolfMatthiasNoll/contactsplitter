@@ -1,15 +1,3 @@
-# domain/name_parser.py
-
-"""
-Name parsing logic according to defined rules (siehe Spezifikation § 3),
-mit folgender Anpassung:
-- Automatische Hyphenisierung bei Mehr-Wort-Nachnamen entfällt.
-- Explizit eingegebene Bindestriche bleiben erhalten.
-- Ab dem ersten Connector-Token ("von", "van" …) gilt der Rest als Nachname.
-  Nice-to-have: Werden zwei aufeinanderfolgende Eigennamen ohne Connector
-  eingegeben, werden diese zu einem Bindestrich-Nachnamen kombiniert.
-"""
-
 from __future__ import annotations
 from typing import List, Tuple
 from domain.contact import Contact
@@ -18,8 +6,11 @@ from domain import constants
 
 def _split_first_last(name_tokens: List[str]) -> Tuple[str, str]:
     """
-    Hilfs-Split: Letztes Token(-Block) = Nachname (inkl. Connectoren rückwärts),
-    Rest = Vorname.
+    Fallback-Split:
+      - Letztes Token(-Block) = Nachname.
+      - Rückwärts werden CONNECTORS (constants.SURNAME_CONNECTORS)
+        vorangestellt, wenn sie passen.
+      - Rest = Vorname.
     """
     if not name_tokens:
         return "", ""
@@ -28,6 +19,7 @@ def _split_first_last(name_tokens: List[str]) -> Tuple[str, str]:
     j = idx_last - 1
     while j >= 0:
         t = name_tokens[j].rstrip(".").lower()
+        # Zwei-Wort-Connector prüfen
         if j < len(name_tokens) - 1:
             two = f"{name_tokens[j].lower()} {name_tokens[j+1].lower()}"
             if two in constants.SURNAME_CONNECTORS:
@@ -45,49 +37,33 @@ def _split_first_last(name_tokens: List[str]) -> Tuple[str, str]:
 
 def parse_name_to_contact(input_str: str, known_titles: List[str]) -> Contact:
     """
-    Parse a free-text salutation string (z. B. "Herr Dr. Max von Müller") in Contact.
-    Ablauf:
-      1) Komma-Notation ("Müller, Max") erkennen
-      2) Anrede (constants.SALUTATIONS)
-      3) Titel (known_titles)
-      4) Nachname ab erstem Connector ("von", "van" …)
-      5) Fallback-Split (_split_first_last)
-      Nice-to-have: Wenn die letzten beiden Tokens Großbuchstaben-Anfang
-      ohne Connector sind, werden sie zu einem Bindestrich-Namen vereint.
+    Zerlegt einen Freitext (z.B. "Frau Dr. Max van den Berg") in ein Contact-Objekt:
+      1) Anrede/Saluation (constants.SALUTATIONS)
+      2) Titel (known_titles)
+      3) Explizite Hyphen-Regel: ab erstem Bindestrich → Nachname.
+      4) Partikel-Regel:
+         - Sortiere alle Partikel (PREPEND + NO_PREPEND) nach Tokenlänge absteigend.
+         - Suche Vorkommen; entscheide start-Index je nach Set.
+      5) Ein-Token → Nachname.
+      6) Fallback → _split_first_last.
     """
     contact = Contact()
     if not input_str:
         return contact
 
-    text = input_str.strip()
-    if text == "" or len(text) > 255:
-        contact.needs_review = True
-        return contact
+    # 0) Tokenisierung
+    tokens = input_str.replace(",", "").split()
 
-    # 1) Komma-Notation
-    if "," in text:
-        left, right = [p.strip() for p in text.split(",", 1)]
-        tl = left.split()
-        tr = right.split()
-        if tl:
-            contact.nachname = tl[-1]
-            contact.titel = " ".join(tl[:-1])
-        contact.vorname = " ".join(tr)
-        return contact
-
-    tokens = text.split()
-
-    # 2) Anrede
+    # 1) Anrede/Saluation
     if tokens:
         key = tokens[0].rstrip(".").lower()
         if key in constants.SALUTATIONS:
             sal = constants.SALUTATIONS[key]
-            contact.anrede = tokens[0].rstrip(".")
+            contact.anrede = tokens.pop(0).rstrip(".")
             contact.geschlecht = sal["gender"]
             contact.sprache = sal["language"]
-            tokens = tokens[1:]
 
-    # 3) Titel
+    # 2) Titel
     titles: List[str] = []
     known_map = {t.strip(".").lower(): t for t in known_titles}
     while tokens:
@@ -104,32 +80,39 @@ def parse_name_to_contact(input_str: str, known_titles: List[str]) -> Contact:
     if not tokens:
         return contact
 
-    # 4) Connector-Regel
+    # 3) Explizite Hyphen-Regel
     for idx, tok in enumerate(tokens):
-        if tok.rstrip(".").lower() in constants.SURNAME_CONNECTORS:
-            # ab idx = gesamter Nachname
-            vor = tokens[:idx]
-            surname = tokens[idx:]
-            # nice-to-have: letzte zwei ohne Connector hyphenieren
-            if len(surname) >= 2:
-                a, b = surname[-2], surname[-1]
-                if (
-                    all("-" not in x for x in (a, b))
-                    and a[0].isupper()
-                    and b[0].isupper()
-                ):
-                    surname[-2] = f"{a}-{b}"
-                    surname.pop()
-            contact.vorname = " ".join(vor)
-            contact.nachname = " ".join(surname)
+        if "-" in tok:
+            contact.vorname = " ".join(tokens[:idx])
+            contact.nachname = " ".join(tokens[idx:])
             return contact
 
-    # 5a) Ein-Token bleibt = Nachname
+    # 4) Partikel-Regel (mehrwortige zuerst)
+    particles = sorted(
+        list(constants.PREPEND_PARTICLES | constants.NO_PREPEND_PARTICLES),
+        key=lambda p: len(p.split()),
+        reverse=True,
+    )
+    low_tokens = [t.lower() for t in tokens]
+    for part in particles:
+        part_toks = part.split()
+        for i in range(len(tokens) - len(part_toks) + 1):
+            if low_tokens[i : i + len(part_toks)] == part_toks:
+                # ggf. ein Token voranstellen
+                if part in constants.PREPEND_PARTICLES and i > 0:
+                    start = i - 1
+                else:
+                    start = i
+                contact.vorname = " ".join(tokens[:start])
+                contact.nachname = " ".join(tokens[start:])
+                return contact
+
+    # 5) Ein-Token-Fall
     if len(tokens) == 1:
         contact.nachname = tokens[0]
         return contact
 
-    # 5b) Fallback
+    # 6) Fallback-Split
     vor, nach = _split_first_last(tokens)
     contact.vorname = vor
     contact.nachname = nach

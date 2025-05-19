@@ -1,4 +1,26 @@
-"""Constants and configuration for the kontaktsplitter domain logic."""
+"""
+Konstanten für die Namensparsing-Logik.
+
+SALUTATIONS:
+    Mapping von Anrede-Token (klein, ohne Punkt) auf ein Dict mit:
+      - gender: "m" für männlich, "w" für weiblich, "-" für unbekannt
+      - language: Sprachcode, z. B. "de" oder "en"
+
+PREPEND_PARTICLES:
+    Mengen von mehr- oder einwortigen Partikeln (z. B. "von", "von der"),
+    bei denen zusätzlich **ein Token vor** der Partikel zur Nachnameinheit gehört.
+    Beispiel: "Noll von Dettelberg" → Nachname: "Noll von Dettelberg".
+
+NO_PREPEND_PARTICLES:
+    Mengen von Partikeln (z. B. "van", "de", "del"), bei denen der Nachname
+    **genau ab** der Partikel beginnt. Beispiel: "Vincent van Gogh"
+    → Nachname: "van Gogh".
+
+SURNAME_CONNECTORS:
+    Vereinigung aus PREPEND_PARTICLES und NO_PREPEND_PARTICLES.
+    Wird als Fallback in `_split_first_last` verwendet, um längere
+    toponymische Zusätze rückwärts an den Nachnamen zu koppeln.
+"""
 
 from __future__ import annotations
 
@@ -32,16 +54,34 @@ SALUTATIONS: dict[str, dict[str, str]] = {
     "sra": {"gender": "w", "language": "es"},  # Sra. abbreviation for Señora
 }
 
-# Known surname connector tokens that should be considered part of last name if present.
-# Multi-word connectors (e.g., "van der") are handled by checking each token and combining if sequential connectors.
-SURNAME_CONNECTORS: set[str] = {
-    "von",
+# Partikel, bei denen der Vorname **ein Token vor** dem Partikel endet
+PREPEND_PARTICLES = {"von", "zu", "zur", "zum", "von der", "von dem", "von und zu"}
+
+# Partikel, bei denen der Nachname **ab** dem Partikel beginnt
+NO_PREPEND_PARTICLES = {
     "van",
+    "van de",
     "van der",
+    "van den",
+    "vande",
+    "vanden",
+    "vander",
     "de",
-    "da",
+    "de la",
+    "du",
+    "des",
     "del",
-    "der",
-    "di",
+    "de los",
+    "de las",
+    "da",
     "do",
+    "dos",
+    "das",
+    "di",
+    "del",
+    "della",
+    "dello",
+    "degli",
 }
+
+SURNAME_CONNECTORS = PREPEND_PARTICLES | NO_PREPEND_PARTICLES
