@@ -59,8 +59,8 @@ SALUTATIONS: dict[str, dict[str, str]] = {
     "sra": {"gender": "w", "language": "es"},  # Sra. abbreviation for Señora
 }
 
-# Partikel, bei denen der Vorname **ein Token vor** dem Partikel endet
-PREPEND_PARTICLES = {
+# Partikel, bei denen der Nachname **ab** dem Partikel beginnt
+SURNAME_CONNECTORS = {
     "von",
     "zu",
     "zur",
@@ -69,10 +69,6 @@ PREPEND_PARTICLES = {
     "von dem",
     "von und zu",
     "vom",
-}
-
-# Partikel, bei denen der Nachname **ab** dem Partikel beginnt
-NO_PREPEND_PARTICLES = {
     "van",
     "van de",
     "van der",
@@ -97,8 +93,6 @@ NO_PREPEND_PARTICLES = {
     "dello",
     "degli",
 }
-
-SURNAME_CONNECTORS = PREPEND_PARTICLES | NO_PREPEND_PARTICLES
 
 DEFAULT_TITLES = {
     # — Deutsch: akademische Titel —

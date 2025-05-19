@@ -89,7 +89,7 @@ def parse_name_to_contact(input_str: str, known_titles: List[str]) -> Contact:
 
     # 4) Partikel-Regel (mehrwortige zuerst)
     particles = sorted(
-        list(constants.PREPEND_PARTICLES | constants.NO_PREPEND_PARTICLES),
+        list(constants.SURNAME_CONNECTORS),
         key=lambda p: len(p.split()),
         reverse=True,
     )
@@ -98,11 +98,8 @@ def parse_name_to_contact(input_str: str, known_titles: List[str]) -> Contact:
         part_toks = part.split()
         for i in range(len(tokens) - len(part_toks) + 1):
             if low_tokens[i : i + len(part_toks)] == part_toks:
-                # ggf. ein Token voranstellen
-                if part in constants.PREPEND_PARTICLES and i > 0:
-                    start = i - 1
-                else:
-                    start = i
+                # Nachname beginnt direkt beim Connector
+                start = i
                 contact.vorname = " ".join(tokens[:start])
                 contact.nachname = " ".join(tokens[start:])
                 return contact
