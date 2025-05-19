@@ -63,14 +63,15 @@ class OpenAIService:
         logger.error("All OpenAI attempts failed, returning empty string.")
         return ""
 
-    def detect_gender(self, first_name: str) -> str:
-        if not first_name:
+    def detect_gender(self, name: str) -> str:
+        if not name:
             return "-"
         system = (
             "You are an assistant that classifies a first name as male, "
             "female, or unknown. Answer with 'm', 'w', or '-' exactly."
+            "You do this by checking the name against the common names of the given language that name comes from."
         )
-        user = f"First name: {first_name}"
+        user = f"Full name: {name}"
         raw = self._request_chat_completion(system, user).lower()
         if raw in {"m", "male", "man"}:
             return "m"

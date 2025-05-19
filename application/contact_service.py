@@ -3,7 +3,7 @@
 """Application service for processing contact input through parsing and detection steps."""
 
 import logging
-from domain import name_parser
+from domain import constants, name_parser
 from domain.contact import Contact
 from infrastructure.title_repository import TitleRepository
 from infrastructure.openai_service import OpenAIService
@@ -64,7 +64,7 @@ class ContactService:
         if contact.geschlecht == "-" and contact.vorname:
             try:
                 contact.geschlecht = self.ai_service.detect_gender(
-                    contact.vorname.split()[0]
+                    contact.vorname + " " + contact.nachname
                 )
             except Exception as e:
                 logger.error(f"Gender detection via AI failed: {e}")
@@ -79,6 +79,18 @@ class ContactService:
                     logger.error(f"Language detection via AI failed: {e}")
                     detected = ""
                 contact.sprache = detected or ""
+
+        #    Falls keine Anrede im Input, aber nun Geschlecht+Sprache bekannt,
+        #    wählen wir aus constants.SALUTATIONS die passende Kombination.
+        if not contact.anrede and contact.geschlecht in ("m", "w") and contact.sprache:
+            for key, val in constants.SALUTATIONS.items():
+                if (
+                    val["gender"] == contact.geschlecht
+                    and val["language"] == contact.sprache
+                ):
+                    # Key ist z.B. "herr" oder "frau" oder "mr"
+                    contact.anrede = key.capitalize()
+                    break
 
         # 4) Briefanrede generieren
         contact.briefanrede = self.ai_service.generate_briefanrede(contact)
@@ -133,8 +145,8 @@ class ContactService:
         else:
             contact.needs_review = False
 
-    def save_new_title(self, title: str) -> bool:
+    def save_new_title(self, title: str, shortform: str) -> bool:
         """
         Speichert einen neuen Titel in die Repository (persistiert in titles.json).
         """
-        return self.title_repo.add(title)
+        return self.title_repo.add(title, shortform)
