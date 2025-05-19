@@ -51,6 +51,15 @@ class ContactService:
             input_str, self.title_repo.get_titles()
         )
 
+        if contact.titel:
+            normalized = []
+            for tok in contact.titel.split():
+                # entferne Punkt-Endung, falls vorhanden
+                key = tok.rstrip(".").lower()
+                short = self.title_repo.lookup(key)
+                normalized.append(short or tok)
+            contact.titel = " ".join(normalized)
+
         # 2) Geschlecht via AI, falls nicht aus Anrede ermittelt
         if contact.geschlecht == "-" and contact.vorname:
             try:

@@ -20,6 +20,11 @@ SURNAME_CONNECTORS:
     Vereinigung aus PREPEND_PARTICLES und NO_PREPEND_PARTICLES.
     Wird als Fallback in `_split_first_last` verwendet, um längere
     toponymische Zusätze rückwärts an den Nachnamen zu koppeln.
+
+DEFAULT_TITLES:
+    Erweiterte Titeldatenbank (Token → kanonische Kurzform), die
+    akademische sowie Adelstitel in Deutsch, Niederländisch, Französisch,
+    Spanisch/Portugiesisch und Italienisch abdeckt.
 """
 
 from __future__ import annotations
@@ -55,7 +60,16 @@ SALUTATIONS: dict[str, dict[str, str]] = {
 }
 
 # Partikel, bei denen der Vorname **ein Token vor** dem Partikel endet
-PREPEND_PARTICLES = {"von", "zu", "zur", "zum", "von der", "von dem", "von und zu"}
+PREPEND_PARTICLES = {
+    "von",
+    "zu",
+    "zur",
+    "zum",
+    "von der",
+    "von dem",
+    "von und zu",
+    "vom",
+}
 
 # Partikel, bei denen der Nachname **ab** dem Partikel beginnt
 NO_PREPEND_PARTICLES = {
@@ -85,3 +99,56 @@ NO_PREPEND_PARTICLES = {
 }
 
 SURNAME_CONNECTORS = PREPEND_PARTICLES | NO_PREPEND_PARTICLES
+
+DEFAULT_TITLES = {
+    # — Deutsch: akademische Titel —
+    "doktor": "Dr.",
+    "dr": "Dr.",
+    "professor": "Prof.",
+    "prof": "Prof.",
+    "honorarprofessor": "Hon.-Prof.",
+    "privatdozent": "Priv.-Doz.",
+    "juniorprofessor": "Jun.-Prof.",
+    "diplomingenieur": "Dipl.-Ing.",
+    # — Deutsch: Adelstitel —
+    "freiherr": "Frhr.",
+    "reichsfreiherr": "RFrhr.",
+    "baron": "Baron",
+    "graf": "Gräf.",
+    "reichsgraf": "RGräf.",
+    "fürst": "Fürst.",
+    "herzog": "Herz.",
+    "prinz": "Prinz",
+    "landgraf": "Lgr.",
+    "markgraf": "Mgr.",
+    "pfalzgraf": "Pfg.",
+    # — Niederländisch —
+    "doctor": "Dr.",
+    "ingenieur": "Ir.",
+    "ir": "Ir.",
+    "jonkheer": "Jhr.",
+    "ridder": "Rdr.",
+    # — Französisch —
+    "docteur": "Dr.",
+    "professeur": "Prof.",
+    "comte": "Cte.",
+    "duc": "Duc",
+    "prince": "Pr.",
+    "chevalier": "Ch.",
+    # — Spanisch/Portugiesisch —
+    "profesor": "Prof.",
+    "conde": "Cde.",
+    "duque": "Duce.",
+    "principe": "Pr.",
+    "princesa": "Pr.",
+    "marques": "Marq.",
+    "marquesa": "Marq.",
+    "vizconde": "Vizc.",
+    # — Italienisch —
+    "dottore": "Dott.",
+    "professore": "Prof.",
+    "barone": "Bar.",
+    "conte": "Conte",
+    "duca": "Duca",
+    "principe": "Prin.",
+}
