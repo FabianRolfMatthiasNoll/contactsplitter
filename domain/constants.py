@@ -104,6 +104,7 @@ DEFAULT_TITLES = {
     "privatdozent": "Priv.-Doz.",
     "juniorprofessor": "Jun.-Prof.",
     "diplomingenieur": "Dipl.-Ing.",
+    "diplomingenieur": "Dipl. Ing.",
     # — Deutsch: Adelstitel —
     "freiherr": "Frhr.",
     "reichsfreiherr": "RFrhr.",

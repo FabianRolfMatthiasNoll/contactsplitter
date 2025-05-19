@@ -20,7 +20,7 @@ def _split_first_last(name_tokens: List[str]) -> Tuple[str, str]:
     while j >= 0:
         t = name_tokens[j].rstrip(".").lower()
         # Zwei-Wort-Connector prüfen
-        if j < len(name_tokens) - 1:
+        if j < idx_last:
             two = f"{name_tokens[j].lower()} {name_tokens[j+1].lower()}"
             if two in constants.SURNAME_CONNECTORS:
                 last.insert(0, name_tokens[j])
@@ -39,13 +39,12 @@ def parse_name_to_contact(input_str: str, known_titles: List[str]) -> Contact:
     """
     Zerlegt einen Freitext (z.B. "Frau Dr. Max van den Berg") in ein Contact-Objekt:
       1) Anrede/Saluation (constants.SALUTATIONS)
-      2) Titel (known_titles)
-      3) Explizite Hyphen-Regel: ab erstem Bindestrich → Nachname.
-      4) Partikel-Regel:
-         - Sortiere alle Partikel (PREPEND + NO_PREPEND) nach Tokenlänge absteigend.
-         - Suche Vorkommen; entscheide start-Index je nach Set.
-      5) Ein-Token → Nachname.
-      6) Fallback → _split_first_last.
+      2) Titel (known_titles), erkennt führende Titel-Tokens.
+      3) Extra-Titel im Rest → contact.inaccuracies
+      4) Explizite Hyphen-Regel: ab erstem Bindestrich → Nachname.
+      5) Connector-Regel: ab jedem Partikel in constants.SURNAME_CONNECTORS → Nachname.
+      6) Ein-Token → Nachname.
+      7) Fallback → _split_first_last.
     """
     contact = Contact()
     if not input_str:
@@ -69,47 +68,50 @@ def parse_name_to_contact(input_str: str, known_titles: List[str]) -> Contact:
     while tokens:
         clean = tokens[0].rstrip(".").lower()
         if clean in known_map:
-            titles.append(
-                known_map[clean] + ("." if not tokens[0].endswith(".") else "")
-            )
-            tokens.pop(0)
+            tok = tokens.pop(0)
+            titles.append(known_map[clean] + ("." if not tok.endswith(".") else ""))
         else:
             break
     contact.titel = " ".join(titles)
 
+    # 3) Verbleibende Tokens auf weitere Titel prüfen
+    remaining = [t.rstrip(".").lower() for t in tokens]
+    for tok in remaining:
+        if tok in known_map:
+            contact.inaccuracies.append(f"Titel im Namen gefunden: „{tok}“")
+            break
+
     if not tokens:
         return contact
 
-    # 3) Explizite Hyphen-Regel
+    # 4) Explizite Hyphen-Regel
     for idx, tok in enumerate(tokens):
         if "-" in tok:
             contact.vorname = " ".join(tokens[:idx])
             contact.nachname = " ".join(tokens[idx:])
             return contact
 
-    # 4) Partikel-Regel (mehrwortige zuerst)
+    # 5) Connector-Regel
     particles = sorted(
-        list(constants.SURNAME_CONNECTORS),
+        constants.SURNAME_CONNECTORS,
         key=lambda p: len(p.split()),
         reverse=True,
     )
-    low_tokens = [t.lower() for t in tokens]
+    low = [t.lower() for t in tokens]
     for part in particles:
         part_toks = part.split()
         for i in range(len(tokens) - len(part_toks) + 1):
-            if low_tokens[i : i + len(part_toks)] == part_toks:
-                # Nachname beginnt direkt beim Connector
-                start = i
-                contact.vorname = " ".join(tokens[:start])
-                contact.nachname = " ".join(tokens[start:])
+            if low[i : i + len(part_toks)] == part_toks:
+                contact.vorname = " ".join(tokens[:i])
+                contact.nachname = " ".join(tokens[i:])
                 return contact
 
-    # 5) Ein-Token-Fall
+    # 6) Ein-Token-Fall
     if len(tokens) == 1:
         contact.nachname = tokens[0]
         return contact
 
-    # 6) Fallback-Split
+    # 7) Fallback-Split
     vor, nach = _split_first_last(tokens)
     contact.vorname = vor
     contact.nachname = nach

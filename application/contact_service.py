@@ -1,5 +1,3 @@
-# application/contact_service.py
-
 """Application service for processing contact input through parsing and detection steps."""
 
 import logging
@@ -26,85 +24,86 @@ class ContactService:
         self.ai_service = ai_service
         self.history_size = history_size
         self.history: list[Contact] = []
-        # Ensure titles are loaded
         self.title_repo.load()
         logger.info(f"Loaded {len(self.title_repo.get_titles())} titles.")
 
     def parse_input_to_contact(self, input_str: str) -> Contact:
         """
         Parse a raw input string and enrich it into a Contact object,
-        without modifying the in-memory history.
+        ohne die Historie zu verändern.
+        Markiert nur die Felder in review_fields, die leer sind oder ungenau erkannt wurden.
         """
-        if input_str is None:
-            input_str = ""
-        input_str = input_str.strip()
+        contact = Contact()
 
-        # Validation
-        if input_str == "" or len(input_str) > 255:
-            logger.warning("Invalid input string (empty or too long).")
-            contact = Contact()
-            contact.needs_review = True
+        # 0) Grund-Validierung
+        if not input_str or len(input_str) > 255:
+            msg = "Eingabe ungültig (leer oder >255 Zeichen)"
+            contact.inaccuracies.append(msg)
+            # Vorname & Nachname fehlen auf jeden Fall
+            contact.review_fields.extend(["vorname", "nachname"])
             return contact
 
-        # 1) Grundlegendes Parsen
+        input_str = input_str.strip()
+
+        # 1) Name parsen
         contact = name_parser.parse_name_to_contact(
             input_str, self.title_repo.get_titles()
         )
 
+        # 2) Titel-Normalisierung
         if contact.titel:
             normalized = []
             for tok in contact.titel.split():
-                # entferne Punkt-Endung, falls vorhanden
                 key = tok.rstrip(".").lower()
                 short = self.title_repo.lookup(key)
                 normalized.append(short or tok)
             contact.titel = " ".join(normalized)
 
-        # 2) Geschlecht via AI, falls nicht aus Anrede ermittelt
+        # 3) AI: Geschlecht falls nötig
         if contact.geschlecht == "-" and contact.vorname:
             try:
                 contact.geschlecht = self.ai_service.detect_gender(
-                    contact.vorname + " " + contact.nachname
+                    f"{contact.vorname} {contact.nachname}".strip()
                 )
             except Exception as e:
                 logger.error(f"Gender detection via AI failed: {e}")
 
-        # 3) Sprache via AI, falls nicht aus Anrede ermittelt
+        # 4) AI: Sprache falls nötig
         if not contact.sprache:
-            name_for_lang = f"{contact.vorname} {contact.nachname}".strip()
-            if name_for_lang:
-                try:
-                    detected = self.ai_service.detect_language(name_for_lang)
-                except Exception as e:
-                    logger.error(f"Language detection via AI failed: {e}")
-                    detected = ""
-                contact.sprache = detected or ""
+            try:
+                contact.sprache = self.ai_service.detect_language(
+                    f"{contact.vorname} {contact.nachname}".strip()
+                )
+            except Exception as e:
+                logger.error(f"Language detection via AI failed: {e}")
 
-        #    Falls keine Anrede im Input, aber nun Geschlecht+Sprache bekannt,
-        #    wählen wir aus constants.SALUTATIONS die passende Kombination.
+        # 5) Fallback-Anrede
         if not contact.anrede and contact.geschlecht in ("m", "w") and contact.sprache:
             for key, val in constants.SALUTATIONS.items():
                 if (
                     val["gender"] == contact.geschlecht
                     and val["language"] == contact.sprache
                 ):
-                    # Key ist z.B. "herr" oder "frau" oder "mr"
                     contact.anrede = key.capitalize()
                     break
 
-        # 4) Briefanrede generieren
+        # 6) Briefanrede
         contact.briefanrede = self.ai_service.generate_briefanrede(contact)
 
-        # 5) Review-Flag setzen
-        if (
-            contact.geschlecht == "-"
-            or contact.sprache == ""
-            or not contact.vorname
-            or not contact.nachname
-        ):
-            contact.needs_review = True
-        else:
-            contact.needs_review = False
+        # 7) Feld-Validierung: nur echt leere/ungenaue Felder markieren
+        contact.review_fields.clear()
+        # Pflichtfelder prüfen
+        for fld, name in [
+            ("vorname", "Vorname"),
+            ("nachname", "Nachname"),
+        ]:
+            if not getattr(contact, fld):
+                contact.inaccuracies.append(f"{name} fehlt")
+                contact.review_fields.append(fld)
+        # Ungenauigkeiten aus name_parser (z.B. weiterer Titel im Rest)
+        if any("Titel im Namen gefunden" in note for note in contact.inaccuracies):
+            if "titel" not in contact.review_fields:
+                contact.review_fields.append("titel")
 
         return contact
 
@@ -134,16 +133,7 @@ class ContactService:
         Regenerate die Briefanrede (z.B. nach manuellen Feldänderungen).
         """
         contact.briefanrede = self.ai_service.generate_briefanrede(contact)
-        # Review-Flag ggf. neu setzen
-        if (
-            contact.geschlecht == "-"
-            or contact.sprache == ""
-            or not contact.vorname
-            or not contact.nachname
-        ):
-            contact.needs_review = True
-        else:
-            contact.needs_review = False
+        # keine weiteren Validierungen hier nötig
 
     def save_new_title(self, title: str, shortform: str) -> bool:
         """

@@ -113,12 +113,22 @@ class KontaktsplitterApp:
         self._refresh_history_list()
 
     def _parse_and_update(self):
+        """Zerlegen und Preview aktualisieren, mit Popup für Ungenauigkeiten."""
         text = self.input_text.get("1.0", "end").strip()
         contact = self.contact_service.process_input(text)
         self.current_contact = contact
+
+        if contact.inaccuracies:
+            messagebox.showwarning(
+                "Bitte prüfen",
+                "\n".join(contact.inaccuracies),
+                parent=self.root,
+            )
+
         self._update_preview(contact)
 
     def _save_current(self):
+        """Speichert current_contact in die Historie und setzt alle Felder zurück."""
         if not self.current_contact:
             messagebox.showwarning("Kein Kontakt", "Bitte zuerst zerlegen.")
             return
@@ -127,7 +137,7 @@ class KontaktsplitterApp:
         self.contact_service.add_to_history(self.current_contact)
         self._refresh_history_list()
 
-        # Alle Felder zurücksetzen
+        # Eingabe und Vorschau zurücksetzen
         self.input_text.delete("1.0", "end")
         for var in self.value_vars.values():
             var.set("")
@@ -138,10 +148,9 @@ class KontaktsplitterApp:
         messagebox.showinfo("Gespeichert", "Kontakt wurde gespeichert.")
 
     def _refresh_history_list(self):
-        # Tabelle leeren
+        """Aktualisiert die Verlaufstabelle mit allen gespeicherten Kontakten."""
         for iid in self.history_table.get_children():
             self.history_table.delete(iid)
-        # Neue Einträge hinzufügen
         for c in self.contact_service.history:
             self.history_table.insert(
                 "",
@@ -158,24 +167,27 @@ class KontaktsplitterApp:
             )
 
     def _update_preview(self, contact):
+        """Aktualisiert die Feldvorschau und hebt nur review_fields gelb hervor."""
+        # Werte setzen
         for field, var in self.value_vars.items():
             var.set(getattr(contact, field))
-        for lbl in self.value_labels.values():
-            lbl.configure(
-                background=(
-                    "yellow"
-                    if getattr(contact, "needs_review", False)
-                    else self.normal_bg
-                )
-            )
+
+        # Nur die betroffenen Felder markieren
+        for field, lbl in self.value_labels.items():
+            if field in contact.review_fields:
+                lbl.configure(background="yellow")
+            else:
+                lbl.configure(background=self.normal_bg)
 
     def _open_edit_current(self):
+        """Öffnet den Bearbeiten-Dialog nur für den aktuell zerlegten Kontakt."""
         if not self.current_contact:
             messagebox.showwarning("Kein Kontakt", "Bitte zuerst zerlegen.")
             return
         self._open_edit_dialog(self.current_contact)
 
     def _open_edit_dialog(self, contact):
+        """Dialog zum manuellen Nachbearbeiten aller Felder."""
         self.edit_window = tk.Toplevel(self.root)
         self.edit_window.title("Kontakt bearbeiten")
         self.edit_window.geometry("600x400")
@@ -209,13 +221,14 @@ class KontaktsplitterApp:
             entry.grid(row=idx, column=1, sticky="we", padx=5, pady=2)
             self.edit_entries[field] = var
 
-        # FIX: Nach Erzeugung die Vorschau updaten
+        # Button zum Regenerieren der Briefanrede
         ttk.Button(
             self.edit_window,
             text="Briefanrede generieren",
             command=lambda: self._regenerate_briefanrede_in_dialog(contact),
         ).grid(row=len(fields), column=0, pady=10)
 
+        # OK-Button zum Schließen
         ttk.Button(
             self.edit_window,
             text="OK",
@@ -223,22 +236,16 @@ class KontaktsplitterApp:
         ).grid(row=len(fields), column=1, pady=10, sticky="e")
 
     def _regenerate_briefanrede_in_dialog(self, contact):
-        """
-        Regeneriert via AI die Briefanrede, aktualisiert den Dialog-Eintrag
-        und die Vorschau im Hauptfenster.
-        """
+        """Regeneriert via AI die Briefanrede und aktualisiert Dialog & Vorschau."""
         self.contact_service.regenerate_briefanrede(contact)
-        # Dialog-Entry updaten
         self.edit_entries["briefanrede"].set(contact.briefanrede)
-        # Haupt-Vorschau updaten
         self._update_preview(contact)
 
     def _close_edit_dialog(self, contact):
-        # Änderungen zurückschreiben
+        """Schließt den Edit-Dialog und überträgt Änderungen ins Contact-Objekt."""
         for field, var in self.edit_entries.items():
             setattr(contact, field, var.get())
 
-        # Vorschau aktualisieren
         self._update_preview(contact)
         self.edit_window.destroy()
 
