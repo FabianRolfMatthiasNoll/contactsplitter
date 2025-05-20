@@ -9,6 +9,7 @@ from tkinter import ttk, messagebox
 from infrastructure.title_repository import TitleRepository
 from infrastructure.openai_service import OpenAIService
 from application.contact_service import ContactService
+from ui.title_manager import TitleManagerDialog
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -33,7 +34,18 @@ class KontaktsplitterApp:
         self.contact_service = ContactService(self.title_repo, self.ai_service)
         self.current_contact = None
 
+        self._build_menu()
         self._build_widgets()
+
+    def _build_menu(self):
+        menubar = tk.Menu(self.root)
+        settings = tk.Menu(menubar, tearoff=False)
+        settings.add_command(label="Titel verwalten", command=self._open_title_manager)
+        menubar.add_cascade(label="Einstellungen", menu=settings)
+        self.root.config(menu=menubar)
+
+    def _open_title_manager(self):
+        TitleManagerDialog(self.root, self.title_repo)
 
     def _build_widgets(self):
         # — Eingabe-Frame —

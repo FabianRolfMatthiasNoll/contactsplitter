@@ -6,9 +6,9 @@ from domain.constants import DEFAULT_TITLES
 
 class TitleRepository:
     """
-    Lädt und verwaltet die Titelliste aus einer JSON-Datei.
-    Wenn die Datei fehlt oder unvollständig ist, wird sie mit DEFAULT_TITLES
-    initialisiert bzw. synchronisiert.
+    Lädt und verwaltet die Titelliste aus einer JSON-Datei (titles.json).
+    Wenn die Datei fehlt oder ungültig ist, wird sie mit DEFAULT_TITLES neu angelegt.
+    Änderungen (add/delete/reset) wirken direkt auf diese Datei.
     """
 
     def __init__(self, file_path: str):
@@ -20,70 +20,74 @@ class TitleRepository:
 
     def load(self) -> None:
         """
-        Lädt die JSON-Datei. Falls sie nicht existiert, wird sie mit
-        DEFAULT_TITLES erzeugt. Wenn Einträge in DEFAULT_TITLES fehlen,
-        werden sie ergänzt und die Datei aktualisiert.
+        Lädt die titles.json.
+        - Existiert sie nicht oder ist defekt → wird neu mit DEFAULT_TITLES angelegt.
+        - Sonst wird der Inhalt in self.titles geladen.
         """
-        # 1) Existiert die Datei?
+        data: Dict[str, str]
         if not os.path.exists(self.file_path):
-            # Anlage mit allen DEFAULT_TITLES
-            with open(self.file_path, "w", encoding="utf-8") as f:
-                json.dump(DEFAULT_TITLES, f, ensure_ascii=False, indent=2)
-            self.titles = DEFAULT_TITLES.copy()
-            return
-
-        # 2) Datei einlesen
-        with open(self.file_path, "r", encoding="utf-8") as f:
+            data = DEFAULT_TITLES.copy()
+            self._save(data)
+        else:
             try:
-                data = json.load(f)
-                if not isinstance(data, dict):
-                    raise ValueError("titles.json must contain an object")
+                with open(self.file_path, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                    if not isinstance(loaded, dict):
+                        raise ValueError("Ungültiges Format")
+                    data = loaded
             except Exception:
-                # Defekt: überschreiben
-                data = {}
-        # 3) Prüfen, ob DEFAULT_TITLES ergänzt werden müssen
-        updated = False
-        for key, val in DEFAULT_TITLES.items():
-            if key not in data:
-                data[key] = val
-                updated = True
-        if updated:
-            # Datei zurückschreiben
-            with open(self.file_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-        self.titles = data
+                data = DEFAULT_TITLES.copy()
+                self._save(data)
+        # Schlüssel normieren auf Kleinbuchstaben
+        self.titles = {k.lower(): v for k, v in data.items()}
 
     def get_titles(self) -> list[str]:
         """
-        Gibt alle Title-Keys und ihre Kurzformen (ohne Punkt) zurück,
-        die im Parser als bekannte Titel erkannt werden.
+        Gibt alle Langform-Tokens (klein, ohne Punkt) zurück.
         """
-        result: set[str] = set()
-        for key, short in self.titles.items():
-            # Token für lange Form
-            result.add(key)
-            # Token für Kurzform (ohne trailing Punkt)
-            short_clean = short.rstrip(".").lower()
-            result.add(short_clean)
-        return list(result)
+        return list(self.titles.keys())
 
     def lookup(self, token: str) -> str | None:
         """
-        Sucht für einen Title-Token die Kurzform.
-        Rückgabe ist z.B. "Dr." oder "Prof." oder None, falls unbekannt.
+        Liefert die Kurzform zu einem Token oder None.
         """
         return self.titles.get(token.lower())
 
-    def add(self, token: str, shortform: str) -> bool:
+    def add(self, langform: str, kurzform: str) -> bool:
         """
-        Fügt dynamisch einen neuen Titel hinzu (und speichert ihn
-        direkt in titles.json). Gibt True zurück, wenn es ein neuer
-        Eintrag war, False, wenn bereits vorhanden.
+        Fügt oder aktualisiert einen Eintrag in titles.json.
+        Rückgabe True, wenn sich etwas geändert hat.
         """
-        key = token.lower()
-        if key in self.titles:
+        key = langform.strip().lower()
+        val = kurzform.strip()
+        if self.titles.get(key) == val:
             return False
-        self.titles[key] = shortform
-        with open(self.file_path, "w", encoding="utf-8") as f:
-            json.dump(self.titles, f, ensure_ascii=False, indent=2)
+        self.titles[key] = val
+        self._save(self.titles)
         return True
+
+    def delete(self, langform: str) -> bool:
+        """
+        Entfernt einen Eintrag. Rückgabe True, wenn er vorher existierte.
+        """
+        key = langform.strip().lower()
+        if key in self.titles:
+            del self.titles[key]
+            self._save(self.titles)
+            return True
+        return False
+
+    def reset_to_defaults(self) -> None:
+        """
+        Überschreibt titles.json komplett mit DEFAULT_TITLES.
+        """
+        data = {k.lower(): v for k, v in DEFAULT_TITLES.items()}
+        self.titles = data.copy()
+        self._save(data)
+
+    def _save(self, data: Dict[str, str]) -> None:
+        """
+        Persistiert die gegebene Map in titles.json.
+        """
+        with open(self.file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
