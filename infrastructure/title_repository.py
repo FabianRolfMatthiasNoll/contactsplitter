@@ -1,5 +1,3 @@
-# infrastructure/title_repository.py
-
 import json
 import os
 from typing import Dict
@@ -57,10 +55,17 @@ class TitleRepository:
 
     def get_titles(self) -> list[str]:
         """
-        Gibt alle Title-Keys (klein, ohne Punkt) zurück,
+        Gibt alle Title-Keys und ihre Kurzformen (ohne Punkt) zurück,
         die im Parser als bekannte Titel erkannt werden.
         """
-        return list(self.titles.keys())
+        result: set[str] = set()
+        for key, short in self.titles.items():
+            # Token für lange Form
+            result.add(key)
+            # Token für Kurzform (ohne trailing Punkt)
+            short_clean = short.rstrip(".").lower()
+            result.add(short_clean)
+        return list(result)
 
     def lookup(self, token: str) -> str | None:
         """

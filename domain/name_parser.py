@@ -38,11 +38,12 @@ def _split_first_last(name_tokens: List[str]) -> Tuple[str, str]:
 def parse_name_to_contact(input_str: str, known_titles: List[str]) -> Contact:
     """
     Zerlegt einen Freitext (z.B. "Frau Dr. Max van den Berg") in ein Contact-Objekt:
+      0.5) Erkennung comma-separierter Namen: "Nachname, Vorname" oder mit Titeln/Anrede
       1) Anrede/Saluation (constants.SALUTATIONS)
       2) Titel (known_titles), erkennt führende Titel-Tokens.
       3) Extra-Titel im Rest → contact.inaccuracies
-      4) Explizite Hyphen-Regel: ab erstem Bindestrich → Nachname.
-      5) Connector-Regel: ab jedem Partikel in constants.SURNAME_CONNECTORS → Nachname.
+      4) Hyphen-Regel: Nachname ab erstem Bindestrich.
+      5) Connector-Regel: Nachname ab Partikel in constants.SURNAME_CONNECTORS.
       6) Ein-Token → Nachname.
       7) Fallback → _split_first_last.
     """
@@ -50,7 +51,43 @@ def parse_name_to_contact(input_str: str, known_titles: List[str]) -> Contact:
     if not input_str:
         return contact
 
-    # 0) Tokenisierung
+    # 0.5) Comma-separierte Namen: Vor- und Nachname tauschen, Titel/Anrede korrekt behandeln
+    if "," in input_str:
+        parts = [p.strip() for p in input_str.split(",", 1)]
+        prefix_str, suffix_str = parts[0], parts[1]
+        prefix_tokens = prefix_str.replace(",", "").split()
+        suffix_tokens = suffix_str.replace(",", "").split()
+        if prefix_tokens and suffix_tokens:
+            first_clean = prefix_tokens[0].rstrip(".").lower()
+            has_salutation = first_clean in constants.SALUTATIONS
+            has_title = first_clean in known_titles
+            if has_salutation or has_title:
+                tokens = prefix_tokens.copy()
+                sal_token = None
+                # Anrede extrahieren
+                if tokens and tokens[0].rstrip(".").lower() in constants.SALUTATIONS:
+                    sal_token = tokens.pop(0)
+                # Titel extrahieren
+                title_tokens_list: List[str] = []
+                while tokens and tokens[0].rstrip(".").lower() in known_titles:
+                    title_tokens_list.append(tokens.pop(0))
+                # Rest ist kompletter Nachname
+                last_name_tokens = tokens
+                # Neuer Token-Aufbau: [Anrede], [Titel], [Vorname], [Nachname]
+                new_tokens: List[str] = []
+                if sal_token:
+                    new_tokens.append(sal_token)
+                new_tokens.extend(title_tokens_list)
+                new_tokens.extend(suffix_tokens)
+                new_tokens.extend(last_name_tokens)
+            else:
+                # Kein Salutation oder Titel: Prefix ist kompletter Nachname
+                new_tokens = suffix_tokens + prefix_tokens
+            new_input_str = " ".join(new_tokens)
+            # Einmalig rekursiv ohne Komma parsen
+            return parse_name_to_contact(new_input_str, known_titles)
+
+    # 0) Tokenisierung (Kommas entfernen)
     tokens = input_str.replace(",", "").split()
 
     # 1) Anrede/Saluation
