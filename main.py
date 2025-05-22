@@ -202,7 +202,7 @@ class KontaktsplitterApp:
         """Dialog zum manuellen Nachbearbeiten aller Felder."""
         self.edit_window = tk.Toplevel(self.root)
         self.edit_window.title("Kontakt bearbeiten")
-        self.edit_window.geometry("600x400")
+        self.edit_window.geometry("600x420")
         self.edit_window.resizable(True, True)
 
         self.edit_entries: dict[str, tk.StringVar] = {}
@@ -233,28 +233,47 @@ class KontaktsplitterApp:
             entry.grid(row=idx, column=1, sticky="we", padx=5, pady=2)
             self.edit_entries[field] = var
 
-        # Button zum Regenerieren der Briefanrede
+        # Button-Zeile
+        btn_frame = ttk.Frame(self.edit_window)
+        btn_frame.grid(row=len(fields), column=0, columnspan=2, pady=10)
+
         ttk.Button(
-            self.edit_window,
+            btn_frame,
             text="Briefanrede generieren",
             command=lambda: self._regenerate_briefanrede_in_dialog(contact),
-        ).grid(row=len(fields), column=0, pady=10)
+        ).pack(side=tk.LEFT)
 
-        # OK-Button zum Schließen
         ttk.Button(
-            self.edit_window,
-            text="OK",
-            command=lambda: self._close_edit_dialog(contact),
-        ).grid(row=len(fields), column=1, pady=10, sticky="e")
+            btn_frame,
+            text="Übernehmen",
+            command=lambda: self._apply_edit(contact),
+        ).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(
+            btn_frame,
+            text="Abbrechen",
+            command=self.edit_window.destroy,
+        ).pack(side=tk.LEFT)
 
     def _regenerate_briefanrede_in_dialog(self, contact):
-        """Regeneriert via AI die Briefanrede und aktualisiert Dialog & Vorschau."""
+        """
+        Regeneriert via AI die Briefanrede basierend auf den aktuell im
+        Dialog eingetragenen Werten, aktualisiert Dialog und Vorschau.
+        (Das Freitext-Feld bleibt unverändert.)
+        """
+        for field, var in self.edit_entries.items():
+            if field != "briefanrede":
+                setattr(contact, field, var.get())
+
         self.contact_service.regenerate_briefanrede(contact)
         self.edit_entries["briefanrede"].set(contact.briefanrede)
         self._update_preview(contact)
 
-    def _close_edit_dialog(self, contact):
-        """Schließt den Edit-Dialog und überträgt Änderungen ins Contact-Objekt."""
+    def _apply_edit(self, contact):
+        """
+        Übernimmt alle aktuell im Dialog stehenden Werte ins Contact-Objekt,
+        aktualisiert die Vorschau und schließt anschließend das Dialog-Fenster.
+        """
         for field, var in self.edit_entries.items():
             setattr(contact, field, var.get())
 
