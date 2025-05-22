@@ -22,7 +22,7 @@ class OpenAILanguageDetector(ILanguageDetector):
 
 
 class OpenAIAnredeGenerator(IAnredeGenerator):
-    def __init__(self, ai_service: OpenAService := OpenAIService):
+    def __init__(self, ai_service: OpenAIService):
         self.ai = ai_service
 
     def generate(self, contact: Contact) -> str:

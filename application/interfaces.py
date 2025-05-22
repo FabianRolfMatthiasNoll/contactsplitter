@@ -56,10 +56,42 @@ class IContactService(ABC):
 
     @abstractmethod
     def get_history(self) -> List[Contact]:
-        """Liistet alle historisch gespeicherten Kontakte."""
+        """Listet alle historisch gespeicherten Kontakte."""
         pass
 
     @abstractmethod
     def regenerate_briefanrede(self, contact: Contact) -> None:
         """Erzeugt basierend auf aktuellen Feldern eine neue Briefanrede."""
+        pass
+
+
+class ITitleRepository(ABC):
+    @abstractmethod
+    def load(self) -> None:
+        """Lädt die Titeldaten (titles.json)."""
+        pass
+
+    @abstractmethod
+    def get_titles(self) -> list[str]:
+        """Gibt alle bekannten Titel-Token zurück."""
+        pass
+
+    @abstractmethod
+    def lookup(self, token: str) -> str | None:
+        """Liefert die Kurzform zu einem Token oder None."""
+        pass
+
+    @abstractmethod
+    def add(self, langform: str, kurzform: str) -> bool:
+        """Fügt oder aktualisiert einen Titel in titles.json."""
+        pass
+
+    @abstractmethod
+    def delete(self, langform: str) -> bool:
+        """Entfernt einen Titel; Rückgabe True, wenn vorhanden."""
+        pass
+
+    @abstractmethod
+    def reset_to_defaults(self) -> None:
+        """Setzt alle Titel auf die Standardwerte zurück."""
         pass

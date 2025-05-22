@@ -1,13 +1,11 @@
-# ui/kontaktsplitter_app.py
-
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Dict
 
 from domain.contact import Contact
 from ui.title_manager import TitleManagerDialog
-from application.interfaces import IContactService
-from application.interfaces import ITitleRepository
+from application.interfaces import IContactService, ITitleRepository
+
 
 class KontaktsplitterApp:
     def __init__(
@@ -20,6 +18,8 @@ class KontaktsplitterApp:
         self.service = contact_service
         self.title_repo = title_repo
         self.current_contact: Contact = None
+        # Map Treeview item IDs to Contact instances
+        self._item_to_contact: Dict[str, Contact] = {}
 
         self._build_menu()
         self._build_widgets()
@@ -27,11 +27,9 @@ class KontaktsplitterApp:
 
     def _build_menu(self):
         menubar = tk.Menu(self.root)
-        # Titel-Manager
         menu_tools = tk.Menu(menubar, tearoff=0)
         menu_tools.add_command(
-            label="Titel verwalten…",
-            command=self._open_title_manager
+            label="Titel verwalten…", command=self._open_title_manager
         )
         menubar.add_cascade(label="Extras", menu=menu_tools)
         self.root.config(menu=menubar)
@@ -60,7 +58,9 @@ class KontaktsplitterApp:
         ]
         self.field_vars: Dict[str, tk.StringVar] = {}
         for i, (label_text, field_name) in enumerate(labels, start=1):
-            ttk.Label(frm, text=label_text + ":").grid(row=i, column=0, sticky="w", pady=2)
+            ttk.Label(frm, text=label_text + ":").grid(
+                row=i, column=0, sticky="w", pady=2
+            )
             var = tk.StringVar()
             entry = ttk.Entry(frm, textvariable=var, width=40)
             entry.grid(row=i, column=1, columnspan=2, sticky="we", pady=2)
@@ -81,25 +81,47 @@ class KontaktsplitterApp:
             row=0, column=1, padx=5
         )
 
-        # Historie
-        hist_frm = ttk.LabelFrame(self.root, text="Historie", padding=5)
+        # Kontaktbuch (History) als Treeview
+        hist_frm = ttk.LabelFrame(self.root, text="Kontaktbuch", padding=5)
         hist_frm.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
-        self.hist_list = tk.Listbox(hist_frm, height=15, width=30)
-        self.hist_list.grid(row=0, column=0, sticky="nsew")
-        scrollbar = ttk.Scrollbar(hist_frm, orient="vertical", command=self.hist_list.yview)
+
+        columns = (
+            "anrede",
+            "titel",
+            "vorname",
+            "nachname",
+            "geschlecht",
+            "sprache",
+            "briefanrede",
+        )
+        self.tree = ttk.Treeview(hist_frm, columns=columns, show="headings")
+        for col in columns:
+            # Spalten-Header klickbar zum Sortieren
+            self.tree.heading(
+                col,
+                text=col.capitalize(),
+                command=lambda _col=col: self._sort_by(_col, False),
+            )
+            self.tree.column(col, width=100, anchor="center")
+        self.tree.grid(row=0, column=0, sticky="nsew")
+
+        scrollbar = ttk.Scrollbar(hist_frm, orient="vertical", command=self.tree.yview)
         scrollbar.grid(row=0, column=1, sticky="ns")
-        self.hist_list.config(yscrollcommand=scrollbar.set)
-        self.hist_list.bind("<<ListboxSelect>>", self._on_history_select)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
 
         # Grid-Konfiguration
         self.root.columnconfigure(0, weight=3)
-        self.root.columnconfigure(1, weight=1)
+        self.root.columnconfigure(1, weight=2)
         self.root.rowconfigure(0, weight=1)
+        frm.columnconfigure(1, weight=1)
 
     def _on_parse(self):
         raw = self.raw_input.get().strip()
         if not raw:
-            messagebox.showwarning("Eingabe fehlt", "Bitte geben Sie zuerst Rohdaten ein.")
+            messagebox.showwarning(
+                "Eingabe fehlt", "Bitte geben Sie zuerst Rohdaten ein."
+            )
             return
         try:
             contact = self.service.process(raw)
@@ -109,11 +131,9 @@ class KontaktsplitterApp:
             messagebox.showerror("Fehler beim Parsen", str(e))
 
     def _populate_fields(self, contact: Contact):
-        # Einträge auffüllen
         for field, var in self.field_vars.items():
             var.set(getattr(contact, field, ""))
 
-        # Inaccuracies anzeigen
         self.inacc_text.config(state="normal")
         self.inacc_text.delete("1.0", tk.END)
         for inc in contact.inaccuracies:
@@ -122,10 +142,11 @@ class KontaktsplitterApp:
 
     def _on_save(self):
         if not self.current_contact:
-            messagebox.showwarning("Nichts zu speichern", "Kein Kontakt zum Speichern vorhanden.")
+            messagebox.showwarning(
+                "Nichts zu speichern", "Kein Kontakt zum Speichern vorhanden."
+            )
             return
         try:
-            # Felder zurücklesen (evtl. manuelle Korrektur)
             for field, var in self.field_vars.items():
                 setattr(self.current_contact, field, var.get().strip())
             self.service.save_contact(self.current_contact)
@@ -141,27 +162,63 @@ class KontaktsplitterApp:
         try:
             self.service.regenerate_briefanrede(self.current_contact)
             self.field_vars["briefanrede"].set(self.current_contact.briefanrede)
+            # Aktualisiere auch den Eintrag im Treeview
+            self._refresh_history()
         except Exception as e:
             messagebox.showerror("Fehler bei Anrede", str(e))
 
     def _refresh_history(self):
-        self.hist_list.delete(0, tk.END)
-        for idx, contact in enumerate(self.service.get_history()):
-            display = f"{idx+1}: {contact.vorname} {contact.nachname}"
-            self.hist_list.insert(tk.END, display)
+        # Tree leeren
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self._item_to_contact.clear()
 
-    def _on_history_select(self, event):
-        sel = self.hist_list.curselection()
+        # Neu befüllen
+        for contact in self.service.get_history():
+            vals = (
+                contact.anrede,
+                contact.titel,
+                contact.vorname,
+                contact.nachname,
+                contact.geschlecht,
+                contact.sprache,
+                contact.briefanrede,
+            )
+            item_id = self.tree.insert("", "end", values=vals)
+            self._item_to_contact[item_id] = contact
+
+    def _on_tree_select(self, event):
+        sel = self.tree.selection()
         if not sel:
             return
-        idx = sel[0]
-        contact = self.service.get_history()[idx]
-        self.current_contact = contact
-        self._populate_fields(contact)
+        item_id = sel[0]
+        contact = self._item_to_contact.get(item_id)
+        if contact:
+            self.current_contact = contact
+            self._populate_fields(contact)
+
+    def _sort_by(self, col: str, descending: bool):
+        # Daten abrufen und sortieren
+        data = [
+            (self.tree.set(child, col), child) for child in self.tree.get_children("")
+        ]
+        try:
+            data.sort(key=lambda t: t[0].lower(), reverse=descending)
+        except Exception:
+            data.sort(reverse=descending)
+
+        # Reihenfolge im Treeview aktualisieren
+        for index, (_, item) in enumerate(data):
+            self.tree.move(item, "", index)
+
+        # Toggle für nächste Sortierung
+        self.tree.heading(col, command=lambda: self._sort_by(col, not descending))
 
     def _open_title_manager(self):
         try:
             dialog = TitleManagerDialog(self.root, self.title_repo)
             self.root.wait_window(dialog.top)
         except Exception as e:
-            messagebox.showerror("Fehler", f"Titel-Manager konnte nicht geöffnet werden:\n{e}")
+            messagebox.showerror(
+                "Fehler", f"Titel-Manager konnte nicht geöffnet werden:\n{e}"
+            )
