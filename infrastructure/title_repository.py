@@ -1,10 +1,11 @@
 import json
 import os
 from typing import Dict
+from application.interfaces import ITitleRepository
 from domain.constants import DEFAULT_TITLES
 
 
-class TitleRepository:
+class TitleRepository(ITitleRepository):
     """
     Lädt und verwaltet die Titelliste aus einer JSON-Datei (titles.json).
     Wenn die Datei fehlt oder ungültig ist, wird sie mit DEFAULT_TITLES neu angelegt.
