@@ -1,5 +1,7 @@
 from __future__ import annotations
 from typing import List, Tuple
+import unicodedata
+
 from domain.contact import Contact
 from domain import constants
 
@@ -35,60 +37,45 @@ def _split_first_last(name_tokens: List[str]) -> Tuple[str, str]:
     return " ".join(vor), " ".join(last)
 
 
-def parse_name_to_contact(input_str: str, known_titles: List[str]) -> Contact:
+def parse_name_to_contact(input_str: str, title_repo) -> Contact:
     """
-    Zerlegt einen Freitext (z.B. "Frau Dr. Max van den Berg") in ein Contact-Objekt:
-      0.5) Erkennung comma-separierter Namen: "Nachname, Vorname" oder mit Titeln/Anrede
-      1) Anrede/Saluation (constants.SALUTATIONS)
-      2) Titel (known_titles), erkennt führende Titel-Tokens.
-      3) Extra-Titel im Rest → contact.inaccuracies
-      4) Hyphen-Regel: Nachname ab erstem Bindestrich.
-      5) Connector-Regel: Nachname ab Partikel in constants.SURNAME_CONNECTORS.
-      6) Ein-Token → Nachname.
-      7) Fallback → _split_first_last.
+    Zerlegt Freitext in ein Contact-Objekt.
+    - Unicode-Normalisierung
+    - dynamische Titel aus title_repo.lookup()
+    - Title-Casing von Vor- und Nachname
     """
     contact = Contact()
-    if not input_str:
+    if not input_str or not input_str.strip():
         return contact
 
-    # 0.5) Comma-separierte Namen: Vor- und Nachname tauschen, Titel/Anrede korrekt behandeln
-    if "," in input_str:
-        parts = [p.strip() for p in input_str.split(",", 1)]
-        prefix_str, suffix_str = parts[0], parts[1]
-        prefix_tokens = prefix_str.replace(",", "").split()
-        suffix_tokens = suffix_str.replace(",", "").split()
-        if prefix_tokens and suffix_tokens:
-            first_clean = prefix_tokens[0].rstrip(".").lower()
-            has_salutation = first_clean in constants.SALUTATIONS
-            has_title = first_clean in known_titles
-            if has_salutation or has_title:
-                tokens = prefix_tokens.copy()
-                sal_token = None
-                # Anrede extrahieren
-                if tokens and tokens[0].rstrip(".").lower() in constants.SALUTATIONS:
-                    sal_token = tokens.pop(0)
-                # Titel extrahieren
-                title_tokens_list: List[str] = []
-                while tokens and tokens[0].rstrip(".").lower() in known_titles:
-                    title_tokens_list.append(tokens.pop(0))
-                # Rest ist kompletter Nachname
-                last_name_tokens = tokens
-                # Neuer Token-Aufbau: [Anrede], [Titel], [Vorname], [Nachname]
-                new_tokens: List[str] = []
-                if sal_token:
-                    new_tokens.append(sal_token)
-                new_tokens.extend(title_tokens_list)
-                new_tokens.extend(suffix_tokens)
-                new_tokens.extend(last_name_tokens)
-            else:
-                # Kein Salutation oder Titel: Prefix ist kompletter Nachname
-                new_tokens = suffix_tokens + prefix_tokens
-            new_input_str = " ".join(new_tokens)
-            # Einmalig rekursiv ohne Komma parsen
-            return parse_name_to_contact(new_input_str, known_titles)
+    # Unicode-Normalisierung
+    normalized = unicodedata.normalize("NFC", input_str.strip())
 
-    # 0) Tokenisierung (Kommas entfernen)
-    tokens = input_str.replace(",", "").split()
+    # 0.5) Comma-Separated Handling
+    if "," in normalized:
+        parts = [p.strip() for p in normalized.split(",", 1)]
+        prefix_tokens = parts[0].replace(",", "").split()
+        suffix_tokens = parts[1].replace(",", "").split()
+        first_clean = prefix_tokens[0].rstrip(".").lower() if prefix_tokens else ""
+        if first_clean in constants.SALUTATIONS or title_repo.lookup(first_clean):
+            tokens = prefix_tokens.copy()
+            sal_token = None
+            if tokens and tokens[0].rstrip(".").lower() in constants.SALUTATIONS:
+                sal_token = tokens.pop(0)
+            title_tokens: List[str] = []
+            while tokens and title_repo.lookup(tokens[0].rstrip(".").lower()):
+                title_tokens.append(tokens.pop(0))
+            last_name_tokens = tokens
+            new_tokens: List[str] = []
+            if sal_token:
+                new_tokens.append(sal_token)
+            new_tokens.extend(title_tokens)
+            new_tokens.extend(suffix_tokens)
+            new_tokens.extend(last_name_tokens)
+            return parse_name_to_contact(" ".join(new_tokens), title_repo)
+
+    # 0) Tokenisierung (Kommas entfernt)
+    tokens = normalized.replace(",", "").split()
 
     # 1) Anrede/Saluation
     if tokens:
@@ -99,57 +86,52 @@ def parse_name_to_contact(input_str: str, known_titles: List[str]) -> Contact:
             contact.geschlecht = sal["gender"]
             contact.sprache = sal["language"]
 
-    # 2) Titel
+    # 2) Titel (dynamisch aus title_repo)
     titles: List[str] = []
-    known_map = {t.strip(".").lower(): t for t in known_titles}
     while tokens:
         clean = tokens[0].rstrip(".").lower()
-        if clean in known_map:
-            tok = tokens.pop(0)
-            titles.append(known_map[clean] + ("." if not tok.endswith(".") else ""))
-        else:
+        kurz = title_repo.lookup(clean)
+        if not kurz:
             break
+        tokens.pop(0)
+        titles.append(kurz)
     contact.titel = " ".join(titles)
 
-    # 3) Verbleibende Tokens auf weitere Titel prüfen
-    remaining = [t.rstrip(".").lower() for t in tokens]
-    for tok in remaining:
-        if tok in known_map:
-            contact.inaccuracies.append(f"Titel im Namen gefunden: „{tok}“")
-            break
-
+    # Wenn nichts übrig bleibt, fertig
     if not tokens:
         return contact
 
-    # 4) Explizite Hyphen-Regel
-    for idx, tok in enumerate(tokens):
-        if "-" in tok:
-            contact.vorname = " ".join(tokens[:idx])
-            contact.nachname = " ".join(tokens[idx:])
-            return contact
+    # 3) Explizite Hyphen-Regel: nur anwenden, wenn das letzte Token einen Bindestrich hat
+    last_tok = tokens[-1]
+    if "-" in last_tok:
+        contact.vorname = " ".join(tokens[:-1])
+        contact.nachname = last_tok
+    else:
+        # 4) Connector-Regel
+        low = [t.lower() for t in tokens]
+        found = False
+        for part in sorted(
+            constants.SURNAME_CONNECTORS, key=lambda p: len(p.split()), reverse=True
+        ):
+            part_toks = part.split()
+            for i in range(len(tokens) - len(part_toks) + 1):
+                if low[i : i + len(part_toks)] == part_toks:
+                    contact.vorname = " ".join(tokens[:i])
+                    contact.nachname = " ".join(tokens[i:])
+                    found = True
+                    break
+            if found:
+                break
+        if not found:
+            # 5) Ein-Token-Fall
+            if len(tokens) == 1:
+                contact.nachname = tokens[0]
+            else:
+                # 6) Fallback-Split
+                vor, nach = _split_first_last(tokens)
+                contact.vorname, contact.nachname = vor, nach
 
-    # 5) Connector-Regel
-    particles = sorted(
-        constants.SURNAME_CONNECTORS,
-        key=lambda p: len(p.split()),
-        reverse=True,
-    )
-    low = [t.lower() for t in tokens]
-    for part in particles:
-        part_toks = part.split()
-        for i in range(len(tokens) - len(part_toks) + 1):
-            if low[i : i + len(part_toks)] == part_toks:
-                contact.vorname = " ".join(tokens[:i])
-                contact.nachname = " ".join(tokens[i:])
-                return contact
-
-    # 6) Ein-Token-Fall
-    if len(tokens) == 1:
-        contact.nachname = tokens[0]
-        return contact
-
-    # 7) Fallback-Split
-    vor, nach = _split_first_last(tokens)
-    contact.vorname = vor
-    contact.nachname = nach
+    # Title-Casing & Finale Normalisierung
+    contact.vorname = unicodedata.normalize("NFC", contact.vorname).title()
+    contact.nachname = unicodedata.normalize("NFC", contact.nachname).title()
     return contact

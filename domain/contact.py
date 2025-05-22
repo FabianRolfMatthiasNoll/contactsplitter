@@ -1,5 +1,3 @@
-"""Domain model for contact information (anrede, name parts, etc.)."""
-
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Union
@@ -7,32 +5,26 @@ from typing import Dict, List, Union
 
 @dataclass
 class Contact:
-    """Data class representing a parsed contact with various fields."""
+    """Repräsentiert einen geparsten Kontakt."""
 
-    anrede: str = ""  # salutation (e.g. "Herr", "Mrs")
-    titel: str = ""  # academic or honorific titles (all titles in input order)
-    vorname: str = ""  # first name(s)
-    nachname: str = ""  # last name
-    geschlecht: str = "-"  # gender: "m", "w", or "-" if unknown
-    sprache: str = ""  # language code (ISO-639-1, e.g. "de", "en")
-    briefanrede: str = ""  # letter salutation line
-    needs_review: bool = False  # indicates ambiguous or uncertain parsing
+    anrede: str = ""
+    titel: str = ""
+    vorname: str = ""
+    nachname: str = ""
+    geschlecht: str = "-"  # 'm', 'w' oder '-'
+    sprache: str = ""
+    briefanrede: str = ""
+    needs_review: bool = False
     inaccuracies: List[str] = field(default_factory=list)
     review_fields: List[str] = field(default_factory=list)
 
     def __post_init__(self):
-        # Ensure fields have the correct types or normalized values if needed
         if not self.geschlecht:
             self.geschlecht = "-"
-        if not self.sprache:
-            self.sprache = ""
-        if self.inaccuracies:
-            self.needs_review = True
-        if self.review_fields:
+        if self.inaccuracies or self.review_fields:
             self.needs_review = True
 
     def to_dict(self) -> Dict[str, Union[str, bool, List[str]]]:
-        """Convert Contact to dictionary (for serialization or display)."""
         return {
             "anrede": self.anrede,
             "titel": self.titel,
@@ -47,7 +39,6 @@ class Contact:
         }
 
     def __str__(self) -> str:
-        """String representation for debugging (not necessarily for UI)."""
         base = (
             f"Contact(anrede={self.anrede!r}, titel={self.titel!r}, "
             f"vorname={self.vorname!r}, nachname={self.nachname!r}, "
@@ -56,5 +47,7 @@ class Contact:
         )
         if self.inaccuracies:
             base += f", inaccuracies={self.inaccuracies!r}"
+        if self.review_fields:
+            base += f", review_fields={self.review_fields!r}"
         base += ")"
         return base
