@@ -1,0 +1,167 @@
+@startuml
+'----------------------------------------
+' Layout & Styling
+'----------------------------------------
+skinparam nodesep 60
+skinparam ranksep 60
+skinparam packageStyle rectangle
+skinparam defaultFontSize 12
+skinparam linetype ortho
+
+'--------------------------------------------------
+' Pakete / Schichten
+'--------------------------------------------------
+
+package "Infrastructure" #LightCoral {
+  class OpenAIService {
+    - api_key: String
+    - model: String
+    - max_retries: Integer
+    - backoff_factor: Float
+    + detect_gender(name: String): String
+    + detect_language(name: String): String
+    + generate_briefanrede(contact: Contact): String
+  }
+  class TitleRepository {
+    - file_path: String
+    - titles: Map<String,String>
+    + load(): void
+    + get_titles(): List<String>
+    + lookup(token: String): String
+    + add(lang: String, kurz: String): Boolean
+    + delete(lang: String): Boolean
+    + reset_to_defaults(): void
+  }
+  class InMemoryHistoryRepository {
+    - _store: List<Contact>
+    + save(contact: Contact): void
+    + list(): List<Contact>
+  }
+  class DomainNameParser {
+    - title_repo: ITitleRepository
+    + parse(raw: String): Contact
+  }
+  class OpenAIGenderDetector {
+    - ai_service: OpenAIService
+    + detect(contact: Contact): String
+  }
+  class OpenAILanguageDetector {
+    - ai_service: OpenAIService
+    + detect(contact: Contact): String
+  }
+  class OpenAIAnredeGenerator {
+    - ai_service: OpenAIService
+    + generate(contact: Contact): String
+  }
+}
+
+package "Domain" #LightYellow {
+  class Contact {
+    + anrede: String
+    + titel: String
+    + vorname: String
+    + nachname: String
+    + geschlecht: String
+    + sprache: String
+    + briefanrede: String
+    + needs_review: Boolean
+    + review_fields: List<String>
+  }
+}
+
+package "UI" #LightBlue {
+  class KontaktsplitterApp {
+    - service: IContactService
+    - titleRepo: ITitleRepository
+  }
+  class TitleManagerDialog {
+    - repo: ITitleRepository
+  }
+  class TitleEditDialog {
+  }
+}
+
+package "Application" #LightGreen{
+  interface INameParser {
+    + parse(raw: String): Contact
+  }
+  interface IGenderDetector {
+    + detect(contact: Contact): String
+  }
+  interface ILanguageDetector {
+    + detect(contact: Contact): String
+  }
+  interface IAnredeGenerator {
+    + generate(contact: Contact): String
+  }
+  interface IHistoryRepository {
+    + save(contact: Contact): void
+    + list(): List<Contact>
+  }
+  interface IContactService {
+    + process(raw: String): Contact
+    + saveContact(c: Contact): void
+    + getHistory(): List<Contact>
+    + regenerateBriefanrede(c: Contact): void
+  }
+  interface ITitleRepository {
+    + load(): void
+    + get_titles(): List<String>
+    + lookup(token: String): String
+    + add(lang: String, kurz: String): Boolean
+    + delete(lang: String): Boolean
+    + resetToDefaults(): void
+  }
+
+  class ContactService {
+    - nameParser: INameParser
+    - genderDetector: IGenderDetector
+    - languageDetector: ILanguageDetector
+    - anredeGenerator: IAnredeGenerator
+    - historyRepo: IHistoryRepository
+    + process(raw: String): Contact
+    + saveContact(c: Contact): void
+    + getHistory(): List<Contact>
+    + regenerateBriefanrede(c: Contact): void
+  }
+}
+
+
+
+
+
+
+'----------------------------------------
+' Beziehungen / Abhängigkeiten
+'----------------------------------------
+' Application-Interfaces
+ContactService --|> IContactService
+ContactService ..> INameParser
+ContactService ..> IGenderDetector
+ContactService ..> ILanguageDetector
+ContactService ..> IAnredeGenerator
+ContactService ..> IHistoryRepository
+ContactService --> Contact
+
+' Infrastructure implements/injects
+DomainNameParser ..> INameParser
+OpenAIGenderDetector ..> IGenderDetector
+OpenAILanguageDetector ..> ILanguageDetector
+OpenAIAnredeGenerator ..> IAnredeGenerator
+TitleRepository --|> ITitleRepository
+InMemoryHistoryRepository --|> IHistoryRepository
+
+' UI uses Application & Infrastructure
+KontaktsplitterApp ..> IContactService
+KontaktsplitterApp ..> ITitleRepository
+KontaktsplitterApp ..> TitleManagerDialog
+TitleManagerDialog ..> TitleEditDialog
+
+' Detectors depend on OpenAIService
+OpenAIGenderDetector ..> OpenAIService
+OpenAILanguageDetector ..> OpenAIService
+OpenAIAnredeGenerator ..> OpenAIService
+
+' NameParser depends on TitleRepository
+DomainNameParser ..> TitleRepository
+@enduml
