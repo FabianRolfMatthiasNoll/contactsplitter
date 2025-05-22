@@ -128,6 +128,10 @@ class KontaktsplitterApp:
         hist_frm.rowconfigure(0, weight=1)
 
     def _on_parse(self):
+        # Vor jedem Parse alle Highlight-Stile zurücksetzen
+        for fname in self.field_entries:
+            self._reset_field(fname)
+
         raw = self.raw_input.get().strip()
         if not raw:
             messagebox.showwarning("Eingabe fehlt", "Bitte Rohdaten eingeben.")
@@ -168,7 +172,7 @@ class KontaktsplitterApp:
             self._refresh_history()
             messagebox.showinfo("Gespeichert", "Kontakt gespeichert.")
 
-            # Felder leeren und Highlight zurücksetzen
+            # Felder leeren und Styles zurücksetzen
             self.raw_input.delete(0, tk.END)
             for fname in self.field_entries:
                 self.field_vars[fname].set("")
