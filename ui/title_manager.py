@@ -3,15 +3,10 @@ from tkinter import ttk, messagebox, simpledialog
 
 
 class TitleEditDialog(simpledialog.Dialog):
-    """
-    Allgemeiner Dialog zum Hinzufügen/Bearbeiten eines Titels
-    mit Feldern 'Langform' und 'Kurzform'.
-    """
-
     def __init__(self, parent, title: str, langform: str = "", kurzform: str = ""):
         self.initial_lang = langform
         self.initial_kurz = kurzform
-        self.result: tuple[str, str] | None = None
+        self.result = None
         super().__init__(parent, title=title)
 
     def body(self, master):
@@ -30,7 +25,7 @@ class TitleEditDialog(simpledialog.Dialog):
         ttk.Entry(master, textvariable=self.kurz_var, width=40).grid(
             row=1, column=1, padx=5, pady=5
         )
-        return None  # initial focus
+        return None
 
     def apply(self):
         lang = self.lang_var.get().strip()
@@ -40,30 +35,37 @@ class TitleEditDialog(simpledialog.Dialog):
 
 
 class TitleManagerDialog:
-    """
-    Dialog zum komfortablen Hinzufügen, Bearbeiten, Löschen
-    und Zurücksetzen aller Titel in titles.json.
-    """
-
     def __init__(self, parent: tk.Tk, repo):
         self.repo = repo
         self.repo.load()
         self.win = tk.Toplevel(parent)
+        self.top = self.win  # für wait_window()
         self.win.title("Titelverwaltung")
-        self.win.geometry("450x350")
+        self.win.geometry("500x400")
+
         self._build_ui()
         self._load_items()
 
     def _build_ui(self):
         cols = ("Langform", "Kurzform")
+        container = ttk.Frame(self.win)
+        container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Treeview + Scrollbar
         self.tree = ttk.Treeview(
-            self.win, columns=cols, show="headings", selectmode="browse"
+            container, columns=cols, show="headings", selectmode="browse"
         )
+        vsb = ttk.Scrollbar(container, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=vsb.set)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        container.columnconfigure(0, weight=1)
+        container.rowconfigure(0, weight=1)
         for col in cols:
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=200, anchor="w")
-        self.tree.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+            self.tree.column(col, width=220, anchor="w")
 
+        # Buttons
         btn_frame = ttk.Frame(self.win)
         btn_frame.pack(fill=tk.X, padx=5, pady=5)
         ttk.Button(btn_frame, text="Hinzufügen", command=self._add).pack(side=tk.LEFT)
@@ -88,7 +90,7 @@ class TitleManagerDialog:
                 self._load_items()
             else:
                 messagebox.showinfo(
-                    "Unverändert", "Dieser Titel ist bereits so vorhanden."
+                    "Unverändert", "Dieser Titel ist bereits vorhanden."
                 )
 
     def _edit(self):
@@ -100,7 +102,6 @@ class TitleManagerDialog:
         dlg = TitleEditDialog(self.win, "Titel bearbeiten", lang, kurz)
         if dlg.result:
             new_lang, new_kurz = dlg.result
-            # Wenn sich die Langform geändert hat, alten Eintrag entfernen
             if new_lang != lang:
                 self.repo.delete(lang)
             if self.repo.add(new_lang, new_kurz):
@@ -121,7 +122,7 @@ class TitleManagerDialog:
     def _reset(self):
         if messagebox.askyesno(
             "Zurücksetzen",
-            "Alle Titel werden auf Werkseinstellungen zurückgesetzt.\nFortfahren?",
+            "Alle Titel auf Werkseinstellungen zurücksetzen?",
             parent=self.win,
         ):
             self.repo.reset_to_defaults()
