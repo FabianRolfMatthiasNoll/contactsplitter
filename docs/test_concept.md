@@ -2,11 +2,21 @@
 
 ## Überblick
 
-1. **Unit-Tests**  
-2. **Integrationstests**  
-3. **Systemtests**
+1. **Unit-Tests** schnell und gezielt sind → perfekt für Feedback während Entwicklung
+2. **Integrationstests** uns absichern, dass Module zusammenspielen → perfekt für reale Szenarien
+3. **Systemtests** das große Ganze abdecken → perfekt, um echte Nutzersicht zu prüfen
 
-Aktuell gibt es **32 Unit-Tests** und **19 Integrationstests**.
+Aktuell gibt es **45 Unit-Tests** und **21 Integrationstests**. Die Tests werden mit Hilfe des Tools `pytest` durchgeführt. Dazu wird der Befehl
+
+`python3 -m pytest --cov=application --cov=domain --cov=infrastructure --cov-report=html  tests`
+
+Vor jedem Release ausgeführt. Damit ein Release erfolgen kann, muss die Gesamt-Coverage bei über 80% liegen. 
+Absolut abdeckendes Testing ist nicht zielführend, da der Aufwand mit steigender Coverage exponentiell steigt,
+was zu vielen redundanten Tests und stark erhöhtem Aufwand führt. Zudem wird darauf geachtet, 
+dass alle relevanten Code-Dateien eine eigenständige Coverage von über 80% aufweisen. Dabei gibt es Ausnahmen,
+wie beispielsweise Source-Code, in denen lediglich Interfaces oder Konstanten deklariert sind.
+
+Jeder Release enthält einen vollständigen Report der durchgeführten Unit-, Integrations- und Systemtests.
 
 ---
 
@@ -44,20 +54,5 @@ Systemtests prüfen die **ganze Anwendung als End-to-End-System**, inklusive:
 - externe Services
 
 Hier wird die Anwendung so getestet, wie es ein echter Benutzer erleben würde. Somit wird sichergestellt, dass der Verbund aller Komponenten funktioniert.
-
----
-
-## Warum diese Aufteilung?
-
-Wir splitten die Tests auf, weil:
-- **Unit-Tests** schnell und gezielt sind → perfekt für Feedback während Entwicklung
-- **Integrationstests** uns absichern, dass Module zusammenspielen → perfekt für reale Szenarien
-- **Systemtests** das große Ganze abdecken → perfekt, um echte Nutzersicht zu prüfen
-
-Wenn wir alles in einer Schicht testen würden, wäre es entweder:
-- zu langsam und fragil (nur Systemtests), oder
-- zu kurzsichtig und unvollständig (nur Unit-Tests).
-
-Durch die Aufteilung bleiben die Tests **effizient, stabil und aussagekräftig**.
 
 ---
