@@ -133,6 +133,7 @@ DEFAULT_TITLES = {
     "honorarprofessor": "Hon.-Prof.",
     "privatdozent": "Priv.-Doz.",
     "juniorprofessor": "Jun.-Prof.",
+    "Dr. rer. nat.": "Dr. rer. nat.",
     "diplomingenieur": "Dipl.-Ing.",
     "diplomingenieur": "Dipl. Ing.",
     # — Deutsch: Adelstitel —

@@ -74,10 +74,10 @@ def parse_name_to_contact(input_str: str, title_repo) -> Contact:
             new_tokens.extend(last_name_tokens)
             return parse_name_to_contact(" ".join(new_tokens), title_repo)
 
-    # 0) Tokenisierung (Kommas entfernt)
+    # Tokenisierung (Kommas entfernt)
     tokens = normalized.replace(",", "").split()
 
-    # 1) Anrede/Saluation
+    # Anrede/Saluation
     if tokens:
         key = tokens[0].rstrip(".").lower()
         if key in constants.SALUTATIONS:
@@ -86,22 +86,42 @@ def parse_name_to_contact(input_str: str, title_repo) -> Contact:
             contact.geschlecht = sal["gender"]
             contact.sprache = sal["language"]
 
-    # 2) Titel (dynamisch aus title_repo)
+    # Mehrwortige Titel-Erkennung (inkl. Abkürzungen)
+    # Build map: key→short_form and normalized short_form→short_form
+    known_map: dict[str, str] = {}
+    for key in title_repo.get_titles():
+        short = title_repo.lookup(key) or key
+        known_map[key] = short
+        norm = short.replace(".", "").replace("-", " ").strip().lower()
+        known_map[norm] = short
+
     titles: List[str] = []
-    while tokens:
-        clean = tokens[0].rstrip(".").lower()
-        kurz = title_repo.lookup(clean)
-        if not kurz:
+    i = 0
+    max_seq = max(len(k.split()) for k in known_map.keys())
+    while i < len(tokens):
+        matched = False
+        # try longest possible sequences first
+        for seq_len in range(min(max_seq, len(tokens) - i), 0, -1):
+            candidate = " ".join(tokens[i : i + seq_len])
+            clean = candidate.replace(".", "").replace("-", " ").strip().lower()
+            if clean in known_map:
+                titles.append(known_map[clean])
+                i += seq_len
+                matched = True
+                break
+        if not matched:
             break
-        tokens.pop(0)
-        titles.append(kurz)
+    tokens = tokens[i:]
     contact.titel = " ".join(titles)
 
-    # Wenn nichts übrig bleibt, fertig
-    if not tokens:
-        return contact
+    # Extra-Titel im Rest erkennen
+    remaining = [t.rstrip(".").lower() for t in tokens]
+    for tok in remaining:
+        if tok in known_map:
+            contact.inaccuracies.append(f"Titel im Namen gefunden: „{tok}“")
+            break
 
-    # 3) Explizite Hyphen-Regel: nur anwenden, wenn das letzte Token einen Bindestrich hat
+    # Explizite Hyphen-Regel: nur anwenden, wenn das letzte Token einen Bindestrich hat
     last_tok = tokens[-1]
     if "-" in last_tok:
         contact.vorname = " ".join(tokens[:-1])
@@ -123,11 +143,11 @@ def parse_name_to_contact(input_str: str, title_repo) -> Contact:
             if found:
                 break
         if not found:
-            # 5) Ein-Token-Fall
+            # Ein-Token-Fall
             if len(tokens) == 1:
                 contact.nachname = tokens[0]
             else:
-                # 6) Fallback-Split
+                # Fallback-Split
                 vor, nach = _split_first_last(tokens)
                 contact.vorname, contact.nachname = vor, nach
 
