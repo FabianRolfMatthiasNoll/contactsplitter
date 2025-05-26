@@ -32,6 +32,13 @@ def test_parse_last_name_with_hyphen(mock_title_repository):
     assert (parse_name_to_contact("Henrisson-Ford", mock_title_repository) == contact)
 
 
+def test_parse_last_name_with_particle(mock_title_repository):
+    contact = Contact()
+    contact.vorname = "Henri"
+    contact.nachname = "Von Henrisson"
+    assert (parse_name_to_contact("Henri von Henrisson", mock_title_repository) == contact)
+
+
 def test_parse_first_and_last_name(mock_title_repository):
     contact = Contact()
     contact.vorname = "Henri"
@@ -52,3 +59,30 @@ def test_parse_single_title_full_name(mock_title_repository):
     contact.vorname = "Benjamin"
     contact.nachname = "Henrisson"
     assert (parse_name_to_contact("Dr. Benjamin Henrisson", mock_title_repository) == contact)
+
+def test_parse_single_multiword_title_full_name(mock_title_repository):
+    contact = Contact()
+    contact.titel = "Dr. Rer. Nat."
+    contact.vorname = "Benjamin"
+    contact.nachname = "Henrisson"
+    assert (parse_name_to_contact("Dr. Rer. Nat. Benjamin Henrisson", mock_title_repository) == contact)
+
+
+def test_parse_salutation(mock_title_repository):
+    contact = Contact()
+    contact.anrede = "Herr"
+    contact.vorname = "Benjamin"
+    contact.nachname = "Henrisson"
+    contact.geschlecht = "m"
+    contact.sprache = "de"
+    assert (parse_name_to_contact("Herr Benjamin Henrisson", mock_title_repository) == contact)
+
+def test_parse_salutation_multiple_titles_and_names(mock_title_repository):
+    contact = Contact()
+    contact.anrede = "Herr"
+    contact.vorname = "Benjamin Franklin"
+    contact.nachname = "Henrisson"
+    contact.titel = "Prof. Dr."
+    contact.geschlecht = "m"
+    contact.sprache = "de"
+    assert (parse_name_to_contact("Herr Prof. Dr. Benjamin Franklin Henrisson", mock_title_repository) == contact)
