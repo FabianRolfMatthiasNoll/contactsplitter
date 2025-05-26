@@ -39,6 +39,13 @@ def test_parse_last_name_with_particle(mock_title_repository):
     assert (parse_name_to_contact("Henri von Henrisson", mock_title_repository) == contact)
 
 
+def test_parse_last_name_with_particle_and_hyphen(mock_title_repository):
+    contact = Contact()
+    contact.vorname = "Henri"
+    contact.nachname = "Von Henrisson-Ford"
+    assert (parse_name_to_contact("Henri von Henrisson-Ford", mock_title_repository) == contact)
+
+
 def test_parse_first_and_last_name(mock_title_repository):
     contact = Contact()
     contact.vorname = "Henri"
@@ -86,3 +93,14 @@ def test_parse_salutation_multiple_titles_and_names(mock_title_repository):
     contact.geschlecht = "m"
     contact.sprache = "de"
     assert (parse_name_to_contact("Herr Prof. Dr. Benjamin Franklin Henrisson", mock_title_repository) == contact)
+
+
+def test_parse_reversed_name_with_title(mock_title_repository):
+    contact = Contact()
+    contact.anrede = "Herr"
+    contact.vorname = "Benjamin Franklin"
+    contact.nachname = "Henrisson-Noll"
+    contact.titel = "Dr."
+    contact.geschlecht = "m"
+    contact.sprache = "de"
+    assert (parse_name_to_contact("Herr Dr. Henrisson-Noll, Benjamin Franklin", mock_title_repository) == contact)

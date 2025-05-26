@@ -48,9 +48,11 @@ class ContactService(IContactService):
         if not contact.vorname:
             contact.inaccuracies.append("Vorname fehlt")
             contact.review_fields.append("vorname")
+            contact.needs_review = True
         if not contact.nachname:
             contact.inaccuracies.append("Nachname fehlt")
             contact.review_fields.append("nachname")
+            contact.needs_review = True
 
         return contact
 

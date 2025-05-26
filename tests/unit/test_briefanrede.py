@@ -36,6 +36,15 @@ def test_briefanrede_name_gender_title():
     assert (generate_briefanrede(contact) == "Sehr geehrter Herr Dr. Heimer")
 
 
+def test_briefanrede_name_gender_multiple_title():
+    contact = Contact()
+    contact.titel = "Dipl.-Ing. Dr. Rer. Nat."
+    contact.vorname = "Harald"
+    contact.nachname = "Heimer"
+    contact.geschlecht = "m"
+    assert (generate_briefanrede(contact) == "Sehr geehrter Herr Dipl.-Ing. Dr. Rer. Nat. Heimer")
+
+
 def test_briefanrede_name_gender_language():
     contact = Contact()
     contact.vorname = "Harald"
