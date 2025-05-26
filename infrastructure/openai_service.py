@@ -133,7 +133,7 @@ class OpenAIService:
 
         system = (
             "You are a formal correspondence assistant. "
-            "Given the following contact details, generate a polite letter salutation "
+            "Given the following contact details, generate a polite letter salutation consorting to DIN 5008"
             "in the appropriate language and style."
         )
         user = f"{context}\n\nGenerate the salutation:"

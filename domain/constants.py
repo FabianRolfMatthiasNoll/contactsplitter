@@ -32,42 +32,69 @@ from __future__ import annotations
 # Known salutation tokens (Anreden) mapped to gender and language.
 # Keys are normalized to lowercase (without punctuation).
 SALUTATIONS: dict[str, dict[str, str]] = {
-    # German
+    # — Deutsch —
     "herr": {"gender": "m", "language": "de"},
     "frau": {"gender": "w", "language": "de"},
-    # English
+    # — Englisch —
     "mr": {"gender": "m", "language": "en"},
     "mrs": {"gender": "w", "language": "en"},
     "ms": {"gender": "w", "language": "en"},
     "miss": {"gender": "w", "language": "en"},
-    # French
-    "m": {"gender": "m", "language": "fr"},  # Monsieur (abbrev)
+    "mx": {"gender": "-", "language": "en"},
+    # — Französisch —
     "monsieur": {"gender": "m", "language": "fr"},
-    "mme": {"gender": "w", "language": "fr"},  # Madame (abbrev)
+    "m": {"gender": "m", "language": "fr"},  # Monsieur (Abk.)
     "madame": {"gender": "w", "language": "fr"},
-    # Italian
+    "mme": {"gender": "w", "language": "fr"},  # Madame (Abk.)
+    "mademoiselle": {"gender": "w", "language": "fr"},
+    "mlle": {"gender": "w", "language": "fr"},
+    # — Italienisch —
     "signor": {"gender": "m", "language": "it"},
+    "sig": {"gender": "m", "language": "it"},  # Sig.
     "signora": {"gender": "w", "language": "it"},
-    "sig": {"gender": "m", "language": "it"},  # Sig. abbreviation for Signor
-    "sig.ra": {"gender": "w", "language": "it"},  # Sig.ra abbreviation for Signora
-    # Spanish
-    "señor": {"gender": "m", "language": "es"},  # "Señor"
-    "senor": {"gender": "m", "language": "es"},  # allow no accent
-    "señora": {"gender": "w", "language": "es"},  # "Señora"
-    "senora": {"gender": "w", "language": "es"},  # allow no accent
-    "sr": {"gender": "m", "language": "es"},  # Sr. abbreviation for Señor
-    "sra": {"gender": "w", "language": "es"},  # Sra. abbreviation for Señora
+    "sig.ra": {"gender": "w", "language": "it"},  # Sig.ra
+    "signorina": {"gender": "w", "language": "it"},
+    "sig.na": {"gender": "w", "language": "it"},
+    # — Spanisch —
+    "señor": {"gender": "m", "language": "es"},
+    "senor": {"gender": "m", "language": "es"},
+    "sr": {"gender": "m", "language": "es"},
+    "señora": {"gender": "w", "language": "es"},
+    "senora": {"gender": "w", "language": "es"},
+    "sra": {"gender": "w", "language": "es"},
+    "señorita": {"gender": "w", "language": "es"},
+    "senorita": {"gender": "w", "language": "es"},
+    "srta": {"gender": "w", "language": "es"},
+    # — Portugiesisch —
+    "senhor": {"gender": "m", "language": "pt"},
+    "senhora": {"gender": "w", "language": "pt"},
+    "senhorita": {"gender": "w", "language": "pt"},
+    # — Polnisch —
+    "pan": {"gender": "m", "language": "pl"},
+    "pani": {"gender": "w", "language": "pl"},
+    # — Niederländisch —
+    "heer": {"gender": "m", "language": "nl"},
+    "mevrouw": {"gender": "w", "language": "nl"},
+    # — Schwedisch —
+    "fru": {"gender": "w", "language": "sv"},
+    "fröken": {"gender": "w", "language": "sv"},
+    # — Türkisch —
+    "bey": {"gender": "m", "language": "tr"},
+    "bay": {"gender": "m", "language": "tr"},
+    "hanım": {"gender": "w", "language": "tr"},
+    "bayan": {"gender": "w", "language": "tr"},
+    # — Indonesisch —
+    "pak": {"gender": "m", "language": "id"},
+    "ibu": {"gender": "w", "language": "id"},
 }
 
 # Partikel, bei denen der Nachname **ab** dem Partikel beginnt
-SURNAME_CONNECTORS = {
+SURNAME_CONNECTORS: set[str] = {
+    # bisherige europäische Partikel…
     "von",
     "zu",
     "zur",
     "zum",
-    "von der",
-    "von dem",
-    "von und zu",
     "vom",
     "van",
     "van de",
@@ -88,10 +115,13 @@ SURNAME_CONNECTORS = {
     "dos",
     "das",
     "di",
-    "del",
     "della",
     "dello",
     "degli",
+    "al",
+    "bin",
+    "ibn",
+    "bint",
 }
 
 DEFAULT_TITLES = {
@@ -110,7 +140,8 @@ DEFAULT_TITLES = {
     "reichsfreiherr": "RFrhr.",
     "baron": "Baron",
     "graf": "Gräf.",
-    "reichsgraf": "RGräf.",
+    "reichsgraf": "S. R. Graf",
+    "reichsgraf": "S. R. Gräfin",
     "fürst": "Fürst.",
     "herzog": "Herz.",
     "prinz": "Prinz",
