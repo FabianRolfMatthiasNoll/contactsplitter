@@ -2,29 +2,24 @@
 
 ## Überblick
 
-Wir haben drei Testebenen:
-
 1. **Unit-Tests**  
 2. **Integrationstests**  
 3. **Systemtests**
 
-Jede Ebene hat ihren Zweck und deckt bestimmte Aspekte der Anwendung ab. Aktuell gibt es **32 Unit-Tests** und **19 Integrationstests**.
+Aktuell gibt es **32 Unit-Tests** und **19 Integrationstests**.
 
 ---
 
 ## Unit-Tests
 
 Unit-Tests prüfen **einzelne, deterministische Komponenten isoliert**.  
-Das heißt: wir testen nur eine Komponente/Modul, ohne dass externe Abhängigkeiten (wie z. B. Datenbanken, Netzwerke oder AI-Services) tatsächlich angesprochen werden.
+Sie dienen der Prüfung einer Komponente oder eines Moduls, ohne dass externe Abhängigkeiten (wie z.B. Datensätze oder Netzwerke) angesprochen werden.
 
 Wir verwenden hier **Mocks/Stubs** für alles, was nicht rein lokal und vorhersagbar ist.  
 Beispiele:
 - Logikmodule
 - Datenparser
 - Validierungsfunktionen
-
-Warum?  
-Weil wir so schnell, gezielt und wiederholbar testen können, ob das Modul **genau so** funktioniert, wie es soll.
 
 ---
 
@@ -38,9 +33,6 @@ Beispiele:
 - Serviceklassen, die AI-Modelle aufrufen und Ergebnisse weiterreichen
 - Komponenten, die mit der Datenbank interagieren
 
-Warum?  
-Weil wir hier sicherstellen wollen, dass das System auch in der Realität funktioniert, wo Dinge komplexer und weniger vorhersehbar sind.
-
 ---
 
 ## Systemtests
@@ -51,10 +43,7 @@ Systemtests prüfen die **ganze Anwendung als End-to-End-System**, inklusive:
 - Datenbank
 - externe Services
 
-Hier wird die Anwendung so getestet, wie es ein echter Benutzer erleben würde.
-
-Warum?  
-Weil nur so sichergestellt ist, dass wirklich alles zusammen funktioniert und wir keine bösen Überraschungen in der Produktion haben.
+Hier wird die Anwendung so getestet, wie es ein echter Benutzer erleben würde. Somit wird sichergestellt, dass der Verbund aller Komponenten funktioniert.
 
 ---
 
