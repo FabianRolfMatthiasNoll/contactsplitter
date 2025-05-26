@@ -121,35 +121,32 @@ def parse_name_to_contact(input_str: str, title_repo) -> Contact:
             contact.inaccuracies.append(f"Titel im Namen gefunden: „{tok}“")
             break
 
-    # Explizite Hyphen-Regel: nur anwenden, wenn das letzte Token einen Bindestrich hat
+    low_tokens = [t.lower() for t in tokens]
+    for part in sorted(constants.SURNAME_CONNECTORS, key=lambda p: len(p.split()), reverse=True):
+        part_toks = part.split()
+        for i in range(len(tokens) - len(part_toks) + 1):
+            if low_tokens[i : i + len(part_toks)] == part_toks:
+                # z.B. ["von","hallo-mia"] → Vorname="", Nachname="von hallo-mia"
+                contact.vorname = " ".join(tokens[:i])
+                contact.nachname = " ".join(tokens[i:])
+                # direkt raus, nicht weiter splitten
+                contact.vorname = unicodedata.normalize("NFC", contact.vorname).title()
+                contact.nachname = unicodedata.normalize("NFC", contact.nachname).title()
+                return contact
+
+    # Explizite Hyphen-Regel: ab erstem Bindestrich des letzten Tokens (Weil es ja auch Vornamen mit Bindestrich geben kann)
     last_tok = tokens[-1]
     if "-" in last_tok:
         contact.vorname = " ".join(tokens[:-1])
         contact.nachname = last_tok
     else:
-        # 4) Connector-Regel
-        low = [t.lower() for t in tokens]
-        found = False
-        for part in sorted(
-            constants.SURNAME_CONNECTORS, key=lambda p: len(p.split()), reverse=True
-        ):
-            part_toks = part.split()
-            for i in range(len(tokens) - len(part_toks) + 1):
-                if low[i : i + len(part_toks)] == part_toks:
-                    contact.vorname = " ".join(tokens[:i])
-                    contact.nachname = " ".join(tokens[i:])
-                    found = True
-                    break
-            if found:
-                break
-        if not found:
-            # Ein-Token-Fall
-            if len(tokens) == 1:
-                contact.nachname = tokens[0]
-            else:
-                # Fallback-Split
-                vor, nach = _split_first_last(tokens)
-                contact.vorname, contact.nachname = vor, nach
+        # 6) Ein-Token-Fall
+        if len(tokens) == 1:
+            contact.nachname = tokens[0]
+        else:
+            # 7) Fallback-Split
+            vor, nach = _split_first_last(tokens)
+            contact.vorname, contact.nachname = vor, nach
 
     # Title-Casing & Finale Normalisierung
     contact.vorname = unicodedata.normalize("NFC", contact.vorname).title()
