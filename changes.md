@@ -1,8 +1,0 @@
-- Kontakt sollte nicht automatisch abgelegt werden sondern über speicherbutton
-- das Felderbearbeiten sollte nur bei dem aktuell anzuelgenden Kontakt gehen
-- Spracherkennung und Akkuratness testen
-- Beim Bearbeiten funktioniert es nicht die Anrede korrekt neuzugenerieren
-- Alle Felder sollten manuell bearbeitbar sein
-- neben den Gelbmarkierten Feldern sollte auch eine Usermeldung auftauchen als Hinweis zur Bearbeitung.
-- Generell sollte nur das Feld markiert werden welches nicht erkannt wurde.
-- wenn ich eindeutig eine Nachnamen Sektion extrahieren kann wie bei van Hoof Dettelberg und da ja weiß das Hoof und Dettelberg ein kombinationsnachname ist versehe ihn mit einem Bindestrich Hoof-Dettelberg.
